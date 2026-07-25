@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en" data-accent="glassbox">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>glassbox — structured prompt builder</title>
+  <meta name="description"
+    content="Draw the boxes, get valid JSON. A local-only canvas for building structured prompts for Ideogram 4.0, FLUX.2, Krea 2 and generic JSON.">
+  <script>
+    (function () {
+      var t = null;
+      try {
+        t = localStorage.getItem('theme');
+        if (!t) {
+          var legacy = localStorage.getItem('glassbox.theme');
+          if (legacy && legacy !== 'auto') {
+            t = legacy;
+            localStorage.setItem('theme', legacy);
+          }
+          if (legacy) localStorage.removeItem('glassbox.theme');
+        }
+      } catch (e) { }
+      if (t === 'light') document.documentElement.classList.add('theme-light');
+      else if (t === 'dark') document.documentElement.classList.add('theme-dark');
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Outfit:wght@400;500;600&amp;display=swap">
+  <link rel="stylesheet" href="gramofdesign/gramof.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="gramofdesign/marks/glassbox.svg" type="image/svg+xml">
+  <script defer src="gramofdesign/theme.js"></script>
+</head>
+
+<body class="app">
+
+  <!-- ── toolbar: one line, the major controls ─────────────────────────── -->
+  <header class="appbar">
+    <span class="brand"><span class="brand-mark"></span>glassbox</span>
+
+    <div class="appbar-controls">
+      <select id="target" title="Target generator"></select>
+
+      <span class="appbar__sep"></span>
+      <button class="btn" id="btn-open" title="Open a saved work (⌘O)">Open</button>
+      <button class="btn" id="btn-save" title="Save to a named slot (⌘S)">Save</button>
+
+      <span class="appbar__sep"></span>
+      <button class="btn" id="btn-paste" title="Paste JSON from a generator (⌘⇧V)">Paste JSON</button>
+      <button class="btn btn--primary" id="btn-copy" title="Copy JSON for this target (⌘⇧C)">Copy JSON</button>
+    </div>
+
+    <span class="appbar__spacer"></span>
+
+    <span id="doc-name" class="hint hide-narrow"></span>
+    <button class="btn btn--quiet hide-narrow" id="btn-data" title="Stored data and cleanup">Data</button>
+    <div class="segmented segmented--icon" role="group" aria-label="Color theme" data-theme-switch>
+      <button class="segmented__btn" type="button" data-theme="light" aria-label="Light" title="Light"
+        aria-pressed="false">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path
+            d="M6.343 17.657l-1.414 1.414M6.343 6.343L4.929 4.929M17.657 6.343l1.414 -1.414M17.657 17.657l1.414 1.414M12 20v2M12 2v2M20 12h2M2 12h2">
+          </path>
+        </svg>
+      </button>
+      <button class="segmented__btn" type="button" data-theme="auto" aria-label="Auto" title="Auto"
+        aria-pressed="false"><span>A</span></button>
+      <button class="segmented__btn" type="button" data-theme="dark" aria-label="Dark" title="Dark"
+        aria-pressed="false">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3h.393a7.5 7.5 0 0 0 7.92 12.446A9 9 0 1 1 12 2.992z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── main split: canvas left, accordion right ──────────────────────── -->
+  <div class="workspace">
+
+    <section class="stage">
+      <div class="stage-bar scroller">
+        <label class="shrink" for="aspect">Frame</label>
+        <select id="aspect" class="select--compact"></select>
+
+        <span class="appbar__sep"></span>
+        <button class="btn" id="btn-add">Add box</button>
+        <button class="btn" id="btn-dup" disabled>Duplicate</button>
+        <button class="btn btn--danger" id="btn-del" disabled>Delete</button>
+
+        <span class="appbar__sep"></span>
+        <button class="btn" id="btn-backdrop">Backdrop…</button>
+        <input type="file" id="backdrop-file" accept="image/*" hidden>
+        <label for="backdrop-opacity" class="shrink" id="opacity-label" hidden>Opacity</label>
+        <input type="range" id="backdrop-opacity" class="backdrop-range" min="0" max="100" value="45" hidden>
+        <button class="btn btn--quiet" id="btn-backdrop-clear" hidden>Remove</button>
+
+        <span class="appbar__spacer"></span>
+        <span id="hint-coords" class="hint"></span>
+      </div>
+
+      <div class="canvas-wrap glass" id="canvas-wrap">
+        <div class="canvas" id="canvas">
+          <img id="backdrop" alt="">
+          <div class="thirds"></div>
+          <div class="canvas-empty" id="canvas-empty">
+            Drag anywhere to draw a box.<br>Drop an image here to use it as a backdrop.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="inspector inspector--sheet" id="inspector" aria-label="Prompt inspector"></aside>
+  </div>
+
+  <nav class="tabbar" aria-label="Mobile workspace">
+    <button class="tabbar__btn is-active" type="button" data-mobile-panel="canvas" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 5v10a1 1 0 0 0 1 1h10M5 8h10a1 1 0 0 1 1 1v10M3 3l18 18"></path>
+      </svg>
+      <span>Canvas</span>
+    </button>
+    <button class="tabbar__btn" type="button" data-mobile-panel="boxes">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"></path>
+      </svg>
+      <span>Boxes</span>
+    </button>
+    <button class="tabbar__btn" type="button" data-mobile-panel="json">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M7 4a2 2 0 0 0 -2 2v3a2 2 0 0 1 -2 2a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2M17 4a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2a2 2 0 0 0 -2 2v3a2 2 0 0 1 -2 2">
+        </path>
+      </svg>
+      <span>JSON</span>
+    </button>
+    <button class="tabbar__btn" type="button" data-mobile-panel="data">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <ellipse cx="12" cy="6" rx="8" ry="3"></ellipse>
+        <path d="M4 6v6c0 1.657 3.582 3 8 3s8 -1.343 8 -3V6M4 12v6c0 1.657 3.582 3 8 3s8 -1.343 8 -3v-6">
+        </path>
+      </svg>
+      <span>Data</span>
+    </button>
+  </nav>
+
+  <!-- ── dialogs ───────────────────────────────────────────────────────── -->
+
+  <dialog id="dlg-paste">
+    <form method="dialog">
+      <div class="dlg__head">Paste JSON</div>
+      <div class="dlg__body">
+        <div class="hint">
+          Read as <strong id="paste-target"></strong>, falling back to a structural scan if that
+          finds nothing. Validated before anything is replaced — a malformed paste changes nothing.
+          Labels and colours are kept for boxes that land in roughly the same place.
+        </div>
+        <textarea id="paste-text" placeholder='{ "scene": "…" }' spellcheck="false"></textarea>
+        <div class="hint err" id="paste-error"></div>
+        <div id="paste-summary" hidden></div>
+      </div>
+      <div class="dlg__foot">
+        <button class="btn" value="cancel">Cancel</button>
+        <button class="btn btn--primary" id="paste-ok" value="ok" type="button">Replace canvas</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-save">
+    <form method="dialog">
+      <div class="dlg__head">Save work</div>
+      <div class="dlg__body">
+        <div class="field">
+          <label for="save-name">Name</label>
+          <input type="text" id="save-name" placeholder="forest scene — wolf and moose">
+        </div>
+        <div class="hint">
+          Saved in this browser only, including your box labels and colours. Also downloadable as a
+          <code>.glassbox.json</code> file you can keep outside the browser.
+        </div>
+      </div>
+      <div class="dlg__foot">
+        <button class="btn" value="cancel">Cancel</button>
+        <div class="btn-pair">
+          <button class="btn" id="save-copy" type="button">Copy work JSON</button>
+          <button class="btn" id="save-file" type="button">Download file</button>
+        </div>
+        <button class="btn btn--primary" id="save-ok" type="button" value="ok">Save slot</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-open">
+    <form method="dialog">
+      <div class="dlg__head">Open work</div>
+      <div class="dlg__body">
+        <div class="slot-list" id="slot-list"></div>
+        <input type="file" id="open-file" accept=".json,application/json" hidden>
+      </div>
+      <div class="dlg__foot">
+        <button class="btn" value="cancel">Close</button>
+        <button class="btn" id="open-from-file" type="button">Open file…</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-data">
+    <form method="dialog">
+      <div class="dlg__head">Stored data</div>
+      <div class="dlg__body">
+        <div class="hint">
+          glassbox never sends your prompts, boxes or saved works to a server. Everything below
+          lives in this browser's local storage. No cookies, no analytics.
+        </div>
+        <div id="data-report" class="hint"></div>
+      </div>
+      <div class="dlg__foot">
+        <button class="btn btn--danger" id="btn-clear" type="button">Erase everything</button>
+        <span class="appbar__spacer"></span>
+        <button class="btn" value="cancel">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="targets.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

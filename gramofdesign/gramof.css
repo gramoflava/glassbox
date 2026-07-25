@@ -1,0 +1,1095 @@
+/* ============================================================================
+   gramof design — shared design language
+   One family, five products. Shared bones, per-project accent hue.
+
+   Bones derive from whois (cleanest light/dark story).
+   Glass surfaces derive from novaos, calmed for everyday use.
+   Chart tokens derive from grainofrain.
+
+   Usage:
+     <link rel="stylesheet" href="gramofdesign/gramof.css">
+     <html data-accent="grainofrain">        <- picks the accent hue
+     <html class="theme-dark">               <- explicit theme (see theme.js)
+   ========================================================================== */
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Tokens: scale, type, motion (theme-independent) ─────────────────────── */
+
+:root {
+  /* Type */
+  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Outfit', 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-2xs: 10px;
+  --text-xs:  11px;
+  --text-sm:  12px;
+  --text-md:  14px;   /* base — one density across all five projects */
+  --text-lg:  16px;
+  --text-xl:  20px;
+  --text-2xl: 26px;
+  --text-3xl: 34px;
+
+  --leading-tight: 1.2;
+  --leading-body:  1.55;
+
+  /* Space — 4px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 10px;   /* 1b: the workspace gap */
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Content widths */
+  --content-narrow: 860px;
+  --content-wide: 1140px;
+
+  /* Radius */
+  --radius-none: 0;
+  --radius-xs:   4px;
+  --radius-sm:   7px;
+  --radius-md:   11px;   /* cards inside panels (lg - 5) */
+  --radius-lg:   16px;   /* panels, glass chrome */
+  --radius-xl:   22px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 380ms;
+
+  /* Glass — the single knob. Tools use --blur-panel; novaos raises it. */
+  --blur-panel: 40px;
+  --blur-bar:   40px;
+
+  /* Chart categorical palette — verbatim from grainofrain, theme-agnostic */
+  --chart-1: #1E88E5;
+  --chart-2: #FB8C00;
+  --chart-3: #8E24AA;
+  --chart-4: #00ACC1;
+  --chart-5: #E53935;
+  --chart-6: #43A047;
+  --chart-7: #F9A825;
+  --chart-8: #3949AB;
+  --chart-temp-max: #EF5350;
+  --chart-temp-mean: #0D47A1;
+  --chart-temp-min: #1E88E5;
+  --chart-norm: #616161;
+
+  /* Canvas annotation palette. The eight family colours are aliases so
+     glassbox boxes and data charts speak the same colour language. */
+  --palette-grey:    #8e8e93;
+  --palette-red:     var(--chart-5);
+  --palette-crimson: #c9184a;
+  --palette-rose:    #f4718b;
+  --palette-pink:    #ff2d92;
+  --palette-fuchsia: #d926d9;
+  --palette-purple:  var(--chart-3);
+  --palette-violet:  #7b61ff;
+  --palette-indigo:  var(--chart-8);
+  --palette-blue:    var(--chart-1);
+  --palette-azure:   #2f80ed;
+  --palette-sky:     #56ccf2;
+  --palette-cyan:    var(--chart-4);
+  --palette-teal:    #14b8a6;
+  --palette-emerald: #10b981;
+  --palette-green:   var(--chart-6);
+  --palette-lime:    #8bc34a;
+  --palette-olive:   #7a8b3c;
+  --palette-yellow:  var(--chart-7);
+  --palette-amber:   #ffb020;
+  --palette-orange:  var(--chart-2);
+  --palette-coral:   #ff7a5c;
+  --palette-sienna:  #c1653a;
+  --palette-brown:   #8b5e34;
+  --palette-sand:    #c2a37a;
+  --palette-khaki:   #9a8c5c;
+  --palette-mint:    #6ee7b7;
+  --palette-plum:    #8e4585;
+  --palette-mauve:   #b08bbb;
+  --palette-slate:   #64748b;
+  --palette-steel:   #4a6572;
+  --palette-denim:   #3b5a86;
+  --palette-ink:     #2c2c54;
+}
+
+/* ── Tokens: light theme (default) ───────────────────────────────────────── */
+
+:root,
+html.theme-light {
+  color-scheme: light;
+
+  --bg:            #f4f6fb;
+  --bg-alt:        #f0f2f6;
+  --surface:       #ffffff;
+  --surface-sunk:  rgba(0, 0, 0, 0.03);
+
+  /* Glass: translucent surface + backdrop-filter + specular top edge */
+  --glass:         rgba(255, 255, 255, 0.55);
+  --glass-hover:   rgba(255, 255, 255, 0.78);
+  --glass-active:  rgba(255, 255, 255, 0.94);
+  --glass-edge:    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+  --line:          rgba(0, 0, 0, 0.08);
+  --line-strong:   rgba(0, 0, 0, 0.14);
+
+  --text:           #1a1d23;
+  --text-secondary: #4b5563;
+  --text-muted:     #9ca3af;
+  --text-on-accent: #ffffff;
+
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md:    0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-lg:    0 12px 40px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.11), 0 2px 6px rgba(0, 0, 0, 0.05);
+
+  --danger:  #d70015;
+  --warn:    #b25000;
+  --success: #0f7b3d;
+
+  --chart-grid:       rgba(0, 0, 0, 0.06);
+  --chart-axis:       #cbd5e1;
+  --chart-axis-label: #64748b;
+  --tooltip-bg:       #ffffff;
+  --tooltip-line:     #e2e8f0;
+  --tooltip-text:     #0f172a;
+}
+
+/* ── Tokens: dark theme ──────────────────────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light):not(.theme-dark) {
+    color-scheme: dark;
+
+    --bg:            #0b0d12;
+    --bg-alt:        #101318;
+    --surface:       #161921;
+    --surface-sunk:  rgba(255, 255, 255, 0.05);
+
+    --glass:         rgba(20, 23, 31, 0.50);
+    --glass-hover:   rgba(30, 34, 44, 0.72);
+    --glass-active:  rgba(38, 43, 55, 0.88);
+    --glass-edge:    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+    --line:          rgba(255, 255, 255, 0.08);
+    --line-strong:   rgba(255, 255, 255, 0.16);
+
+    --text:           #e8eaf0;
+    --text-secondary: #9ca3af;
+    --text-muted:     #6b7280;
+    --text-on-accent: #ffffff;
+
+    --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-md:    0 4px 20px rgba(0, 0, 0, 0.42);
+    --shadow-lg:    0 12px 40px rgba(0, 0, 0, 0.55);
+    --shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+    --danger:  #ff453a;
+    --warn:    #ffa53a;
+    --success: #30d158;
+
+    --chart-grid:       rgba(255, 255, 255, 0.07);
+    --chart-axis:       #334155;
+    --chart-axis-label: #9ca3af;
+    --tooltip-bg:       #1c1f27;
+    --tooltip-line:     #333a48;
+    --tooltip-text:     #e8eaf0;
+  }
+}
+
+html.theme-dark {
+  color-scheme: dark;
+
+  --bg:            #0b0d12;
+  --bg-alt:        #101318;
+  --surface:       #161921;
+  --surface-sunk:  rgba(255, 255, 255, 0.05);
+
+  --glass:         rgba(20, 23, 31, 0.50);
+  --glass-hover:   rgba(30, 34, 44, 0.72);
+  --glass-active:  rgba(38, 43, 55, 0.88);
+  --glass-edge:    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  --line:          rgba(255, 255, 255, 0.08);
+  --line-strong:   rgba(255, 255, 255, 0.16);
+
+  --text:           #e8eaf0;
+  --text-secondary: #9ca3af;
+  --text-muted:     #6b7280;
+  --text-on-accent: #ffffff;
+
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md:    0 4px 20px rgba(0, 0, 0, 0.42);
+  --shadow-lg:    0 12px 40px rgba(0, 0, 0, 0.55);
+  --shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+  --danger:  #ff453a;
+  --warn:    #ffa53a;
+  --success: #30d158;
+
+  --chart-grid:       rgba(255, 255, 255, 0.07);
+  --chart-axis:       #334155;
+  --chart-axis-label: #9ca3af;
+  --tooltip-bg:       #1c1f27;
+  --tooltip-line:     #333a48;
+  --tooltip-text:     #e8eaf0;
+}
+
+/* ── Accent hues ─────────────────────────────────────────────────────────────
+   Shared bones, distinct accent per product. Every hue sits at the same
+   perceptual lightness/chroma so components behave identically across sites.
+   -------------------------------------------------------------------------- */
+
+:root                      { --accent: #2563eb; --accent-hover: #1d4ed8; }
+:root[data-accent='whois']       { --accent: #2563eb; --accent-hover: #1d4ed8; }
+:root[data-accent='grainofrain'] { --accent: #0d7d74; --accent-hover: #0a6560; }
+:root[data-accent='glassbox']    { --accent: #6d3ce0; --accent-hover: #5b2fc4; }
+:root[data-accent='hexports']    { --accent: #c2410c; --accent-hover: #9f3509; }
+:root[data-accent='novaos']      { --accent: #4f46e5; --accent-hover: #4338ca; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light):not(.theme-dark)                      { --accent: #3b82f6; --accent-hover: #60a5fa; }
+  :root:not(.theme-light):not(.theme-dark)[data-accent='whois']       { --accent: #3b82f6; --accent-hover: #60a5fa; }
+  :root:not(.theme-light):not(.theme-dark)[data-accent='grainofrain'] { --accent: #2dd4bf; --accent-hover: #5eead4; }
+  :root:not(.theme-light):not(.theme-dark)[data-accent='glassbox']    { --accent: #a78bfa; --accent-hover: #c4b5fd; }
+  :root:not(.theme-light):not(.theme-dark)[data-accent='hexports']    { --accent: #fb923c; --accent-hover: #fdba74; }
+  :root:not(.theme-light):not(.theme-dark)[data-accent='novaos']      { --accent: #818cf8; --accent-hover: #a5b4fc; }
+}
+
+html.theme-dark                      { --accent: #3b82f6; --accent-hover: #60a5fa; }
+html.theme-dark[data-accent='whois']       { --accent: #3b82f6; --accent-hover: #60a5fa; }
+html.theme-dark[data-accent='grainofrain'] { --accent: #2dd4bf; --accent-hover: #5eead4; }
+html.theme-dark[data-accent='glassbox']    { --accent: #a78bfa; --accent-hover: #c4b5fd; }
+html.theme-dark[data-accent='hexports']    { --accent: #fb923c; --accent-hover: #fdba74; }
+html.theme-dark[data-accent='novaos']      { --accent: #818cf8; --accent-hover: #a5b4fc; }
+
+/* Derived accent washes — always in terms of the live --accent. */
+:root {
+  --accent-soft:  color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-mid:   color-mix(in srgb, var(--accent) 18%, transparent);
+  --accent-ring:  color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+
+/* Accent wash — 1b. A static, two-lobe accent haze so glass has something to
+   refract. No animation: the cosmos (expressive tier) is the only moving one. */
+body {
+  background-image:
+    radial-gradient(120% 90% at 12% -10%, var(--wash-1), transparent 58%),
+    radial-gradient(90% 70% at 100% 105%, var(--wash-2), transparent 60%);
+  background-attachment: fixed;
+}
+
+:root, html.theme-light {
+  --wash-1: color-mix(in srgb, var(--accent) 16%, transparent);
+  --wash-2: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light):not(.theme-dark) {
+    --wash-1: color-mix(in srgb, var(--accent) 20%, transparent);
+    --wash-2: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+}
+html.theme-dark {
+  --wash-1: color-mix(in srgb, var(--accent) 20%, transparent);
+  --wash-2: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+  color: var(--text);
+  background-color: var(--bg);
+  transition: background var(--dur-base) ease, color var(--dur-base) ease;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+h1, .h1 { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.03em; line-height: var(--leading-tight); }
+h2, .h2 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; line-height: var(--leading-tight); }
+h3, .h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; letter-spacing: -0.01em; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.hint  { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.5; }
+.mono  { font-family: var(--font-mono); }
+
+/* Monospace accent tag — from whois, the family's signature label */
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 0.2em 0.55em;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+}
+
+/* ── Surfaces ────────────────────────────────────────────────────────────── */
+
+/* .glass — the family's primary container. Panels, cards, bars, dialogs. */
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md), var(--glass-edge);
+  backdrop-filter: blur(var(--blur-panel)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(1.4);
+}
+
+/* .solid — opaque card for content that sits *inside* a glass panel.
+   Never stack glass on glass; nest solid inside glass. */
+.solid {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.sunk {
+  background: var(--surface-sunk);
+  border-radius: var(--radius-md);
+}
+
+/* ── App shell: glass top bar + optional glass side inspector ────────────── */
+
+.app {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.appbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--glass);
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--glass-edge);
+  backdrop-filter: blur(var(--blur-bar)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-bar)) saturate(1.4);
+  flex-wrap: wrap;
+  z-index: 100;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-md);
+  letter-spacing: -0.02em;
+  margin-right: var(--space-1);
+}
+
+.appbar__sep    { width: 1px; height: 20px; background: var(--line-strong); margin: 0 2px; }
+.appbar__spacer { flex: 1 1 auto; }
+
+.workspace {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-height: 0;
+}
+
+.workspace--plain { grid-template-columns: minmax(0, 1fr); }
+
+.stage { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 0; }
+
+.inspector {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md), var(--glass-edge);
+  backdrop-filter: blur(var(--blur-panel)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(1.4);
+  overflow-y: auto;
+  min-height: 0;
+  padding: var(--space-2);
+}
+
+/* ── Responsive: tablet ──────────────────────────────────────────────────────
+   The inspector stops being a column and becomes the next thing down the page.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .app { height: auto; min-height: 100dvh; overflow: visible; }
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .stage { min-height: 52dvh; }
+  .inspector { overflow: visible; min-height: 0; }
+}
+
+/* ── Responsive: phone ───────────────────────────────────────────────────────
+   Three moves, in order of importance:
+     1. the app bar splits into an identity row and a scrolling control row
+     2. mode switching leaves the bar and becomes a bottom tab bar
+     3. the inspector becomes a bottom sheet
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .appbar {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+    position: sticky;
+    top: 0;
+  }
+  .appbar__sep { display: none; }
+  .workspace { padding: var(--space-2); gap: var(--space-2); }
+
+  /* Anything the bar can shed on a phone */
+  .hide-narrow { display: none !important; }
+  .only-narrow { display: revert; }
+
+  /* Stage grows, page scrolls */
+  .stage { min-height: 46dvh; }
+
+  /* Inspector as a sheet, pinned to the bottom of the viewport */
+  .inspector--sheet {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 200;
+    max-height: 72dvh;
+    overflow-y: auto;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-left: 0; border-right: 0; border-bottom: 0;
+    box-shadow: var(--shadow-lg), var(--glass-edge);
+    padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+    transform: translateY(calc(100% - 52px));
+    transition: transform var(--dur-slow) var(--ease-out);
+  }
+  .inspector--sheet[data-open] { transform: translateY(0); }
+  .inspector--sheet::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    display: block;
+    width: 38px; height: 4px;
+    margin: 6px auto 10px;
+    border-radius: var(--radius-pill);
+    background: var(--line-strong);
+  }
+
+  /* Two-up stat grids instead of four */
+  .stat { padding: var(--space-2); }
+  .stat__value { font-size: var(--text-lg); }
+}
+
+.only-narrow { display: none; }
+
+/* Horizontal scroller for toolbars and segmented rows that can't wrap.
+   Wrap the row, don't restyle it. */
+.scroller {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 calc(-1 * var(--space-3));
+  padding: 0 var(--space-3);
+}
+.scroller::-webkit-scrollbar { display: none; }
+.scroller > * { flex: 0 0 auto; }
+
+/* Bottom tab bar — replaces in-bar mode segments on phones.
+   Glass, like the top bar; icons over labels; safe-area aware. */
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 190;
+  display: none;
+  align-items: stretch;
+  background: var(--glass);
+  border-top: 1px solid var(--line);
+  box-shadow: var(--glass-edge);
+  backdrop-filter: blur(var(--blur-bar)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-bar)) saturate(1.4);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar__btn {
+  flex: 1 1 0;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--dur-fast) ease;
+}
+.tabbar__btn[aria-current='page'],
+.tabbar__btn.is-active { color: var(--accent); }
+.tabbar__btn svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+
+@media (max-width: 640px) {
+  .tabbar { display: flex; }
+  /* Room for the tab bar plus a collapsed sheet handle */
+  .app { padding-bottom: 104px; }
+}
+
+/* Touch: nothing smaller than 44px gets tapped */
+@media (hover: none) and (pointer: coarse) {
+  .btn, .btn--icon { min-height: 44px; }
+  .btn--icon { width: 44px; }
+  .segmented__btn { min-height: 44px; padding: 0.5em 1.1em; }
+  .segmented--icon .segmented__btn { width: 44px; height: 44px; }
+  .switch__track { width: 46px; height: 28px; }
+  .switch__track::after { width: 22px; height: 22px; }
+  .switch input:checked + .switch__track::after { transform: translateX(18px); }
+  .check__box { width: 21px; height: 21px; }
+  .check--radio .check__box::after { left: 5.5px; top: 5.5px; width: 8px; height: 8px; }
+  .check__box::after { left: 6px; top: 2.5px; width: 6px; height: 11px; }
+  .acc > summary { padding: 13px 8px; }
+  input[type='range'] { height: 30px; }
+  input[type='range']::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -10px; }
+}
+
+/* Content pages (whois): the wash and type scale down, nothing else changes */
+@media (max-width: 640px) {
+  h1, .h1 { font-size: var(--text-xl); }
+  dialog {
+    max-width: none;
+    width: 100vw;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    border: 0;
+  }
+  .toast { left: var(--space-3); right: var(--space-3); transform: translateY(8px); max-width: none; }
+  .toast.is-shown { transform: translateY(0); }
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+button, select, input, textarea { font: inherit; color: var(--text); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease,
+              box-shadow var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.btn:hover   { background: var(--glass-hover); border-color: var(--line-strong); }
+.btn:active  { transform: translateY(0.5px); }
+.btn:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.btn--primary { background: var(--accent); border-color: transparent; color: var(--text-on-accent); }
+.btn--primary:hover { background: var(--accent-hover); }
+
+.btn--quiet { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.btn--quiet:hover { background: var(--surface-sunk); color: var(--text); }
+
+.btn--danger { color: var(--danger); }
+.btn--danger:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+.btn--icon { padding: 0; width: 30px; min-height: 30px; }
+.btn[disabled] { opacity: 0.4; cursor: default; }
+
+/* ── Segmented control — the family's core "switch" ──────────────────────────
+   Also the theme switch (light / auto / dark), verbatim from whois.
+   -------------------------------------------------------------------------- */
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+}
+
+.segmented__btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.34em 0.9em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.segmented__btn:hover { color: var(--text); }
+.segmented__btn[aria-pressed='true'],
+.segmented__btn.is-active { background: var(--accent); color: var(--text-on-accent); }
+.segmented__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* Square variant for in-toolbar mode switches */
+.segmented--square { border-radius: var(--radius-sm); }
+.segmented--square .segmented__btn { border-radius: var(--radius-xs); font-family: var(--font-sans); }
+
+/* Icon variant — the theme switch collapses to sun / A / moon.
+   Same three segments, same aria-pressed contract, ~102px instead of ~190px. */
+.segmented--icon { gap: 1px; }
+.segmented--icon .segmented__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 24px;
+  padding: 0;
+  letter-spacing: 0;
+}
+.segmented--icon .segmented__btn svg {
+  width: 15px; height: 15px;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  display: block;
+}
+/* "A" for auto — a glyph, not a picture of one */
+.segmented--icon .segmented__btn span { font-size: var(--text-sm); font-weight: 500; line-height: 1; }
+
+/* ── Toggle switch ───────────────────────────────────────────────────────── */
+
+.switch { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.switch__track {
+  position: relative;
+  width: 38px; height: 22px;
+  flex: 0 0 auto;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: var(--surface);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur-base) var(--ease-spring);
+}
+.switch input:checked + .switch__track { background: var(--accent); border-color: transparent; }
+.switch input:checked + .switch__track::after { transform: translateX(16px); background: #fff; }
+.switch input:focus-visible + .switch__track { box-shadow: 0 0 0 3px var(--accent-ring); }
+.switch__label { font-size: var(--text-md); color: var(--text); }
+
+/* ── Checkbox & radio ────────────────────────────────────────────────────── */
+
+.check { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.check input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.check__box {
+  width: 17px; height: 17px;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  position: relative;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.check--radio .check__box { border-radius: 50%; }
+
+.check__box::after {
+  content: '';
+  position: absolute;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease;
+}
+.check__box::after {
+  left: 4.5px; top: 1.5px;
+  width: 5px; height: 9px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(40deg);
+}
+.check--radio .check__box::after {
+  left: 4px; top: 4px;
+  width: 7px; height: 7px;
+  border: 0; border-radius: 50%;
+  background: #fff;
+  transform: none;
+}
+.check input:checked + .check__box { background: var(--accent); border-color: transparent; }
+.check input:checked + .check__box::after { opacity: 1; }
+.check input:focus-visible + .check__box { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* ── Inputs ──────────────────────────────────────────────────────────────── */
+
+.field { display: flex; flex-direction: column; gap: var(--space-1); }
+.field > label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex; align-items: baseline; gap: var(--space-1);
+}
+.field__key { font-family: var(--font-mono); font-size: var(--text-2xs); opacity: 0.7; margin-left: auto; }
+
+.input, select, textarea,
+input[type='text'], input[type='number'], input[type='date'], input[type='search'] {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+  color: var(--text);
+  outline: none;
+  transition: background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.input:focus, select:focus, textarea:focus,
+input[type='text']:focus, input[type='number']:focus, input[type='date']:focus, input[type='search']:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+textarea { resize: vertical; min-height: 60px; line-height: 1.45; }
+select { width: auto; background: var(--surface); }
+
+/* Range */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+input[type='range']::-moz-range-track {
+  height: 4px; border-radius: 2px;
+  background: var(--surface-sunk); border: 1px solid var(--line);
+}
+input[type='range']::-moz-range-thumb {
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--surface); border: 1.5px solid var(--accent);
+}
+.range-ticks {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+/* ── Accordion disclosure (glassbox's inspector pattern) ─────────────────── */
+
+.acc { border-bottom: 1px solid var(--line); }
+.acc:last-child { border-bottom: 0; }
+
+.acc > summary {
+  cursor: pointer;
+  padding: 9px 8px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-md);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  user-select: none;
+  border-radius: var(--radius-sm);
+}
+.acc > summary:hover { background: var(--surface-sunk); }
+.acc > summary::-webkit-details-marker { display: none; }
+.acc > summary::before {
+  content: '';
+  width: 5px; height: 5px;
+  flex: 0 0 auto;
+  margin-left: 2px;
+  border-right: 1.5px solid var(--text-muted);
+  border-bottom: 1.5px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform var(--dur-fast) ease;
+}
+.acc[open] > summary::before { transform: rotate(45deg); }
+.acc__body { padding: 2px 8px 12px; display: flex; flex-direction: column; gap: var(--space-3); }
+
+.count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-sunk);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+}
+
+/* ── Icons ───────────────────────────────────────────────────────────────────
+   Tabler Icons everywhere (24px grid, 1.5 stroke, currentColor).
+   novaos keeps its custom geometric set for app marks only.
+   -------------------------------------------------------------------------- */
+
+.icon {
+  width: 18px; height: 18px;
+  flex: 0 0 auto;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.icon--sm { width: 15px; height: 15px; }
+.icon--lg { width: 22px; height: 22px; }
+.icon--xl { width: 28px; height: 28px; }
+
+/* ── Dialog ──────────────────────────────────────────────────────────────── */
+
+dialog {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  padding: 0;
+  max-width: 520px;
+  width: calc(100vw - 40px);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); }
+.dlg__head { padding: 16px 18px 0; font-weight: 600; font-size: var(--text-lg); letter-spacing: -0.02em; }
+.dlg__body { padding: 12px 18px; display: flex; flex-direction: column; gap: var(--space-3); }
+.dlg__foot { padding: 12px 18px 16px; display: flex; gap: var(--space-2); justify-content: flex-end; align-items: center; }
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  bottom: 18px; left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--glass);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-md), var(--glass-edge);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-base) ease, transform var(--dur-base) var(--ease-out);
+  z-index: 1000;
+}
+.toast.is-shown { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.is-error { border-color: var(--danger); color: var(--danger); }
+
+/* ── Stats table (from grainofrain) ──────────────────────────────────────────
+   Dense metric readout for the inspector. One label column plus one value
+   column per entity. Labels carry the metric's tooltip; values are mono and
+   right-aligned so units line up down the column.
+   -------------------------------------------------------------------------- */
+
+.stats { display: flex; flex-direction: column; gap: var(--space-2); }
+.stats__head,
+.stats__row {
+  display: grid;
+  grid-template-columns: auto repeat(var(--stats-cols, 1), 1fr);
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.stats__head {
+  padding: 0 8px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.stats__head span:not(:first-child) {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: right;
+}
+.stats__row {
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+}
+/* Zebra, not rules — 16 rows of hairlines is noise */
+.stats__row:nth-child(even) { background: var(--surface-sunk); }
+.stats__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  min-width: 74px;
+}
+.stats__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-align: right;
+}
+.stats__note { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); padding: 2px 8px 0; }
+
+/* Value columns tint to their series colour in the header only, so the table
+   stays readable while still keying to the chart. */
+.stats__head .is-c1 { color: var(--chart-1); }
+.stats__head .is-c2 { color: var(--chart-2); }
+.stats__head .is-c3 { color: var(--chart-3); }
+
+/* ── Paired export: copy and download always travel together ─────────────────
+   RULE: anywhere the user can download an image, they can also copy it to the
+   clipboard. Copy comes first (it is the more common intent), download second.
+   Use .btn-pair for a segmented pair of icon buttons, or two .btn siblings
+   when the actions need labels.
+   -------------------------------------------------------------------------- */
+
+.btn-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.btn-pair > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+.btn-pair > button:hover { background: var(--surface-sunk); color: var(--text); }
+.btn-pair > button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+@media (hover: none) and (pointer: coarse) {
+  .btn-pair > button { min-width: 44px; min-height: 40px; }
+}
+
+/* ── Stat card (from hexports) ───────────────────────────────────────────── */
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.stat__label { font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.stat__value { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.stat__delta { font-size: var(--text-sm); color: var(--text-secondary); }
+
+/* ── Expressive tier: novaos only ───────────────────────────────────────────
+   Same tokens, dialled up. Set on <html data-tier="expressive">.
+   Nothing else in the family opts in.
+   -------------------------------------------------------------------------- */
+
+:root[data-tier='expressive'] {
+  --blur-panel: 56px;
+  --blur-bar:   56px;
+  --radius-lg:  20px;
+  --radius-xl:  26px;
+  --glass:        rgba(20, 20, 25, 0.40);
+  --glass-hover:  rgba(30, 30, 35, 0.50);
+  --glass-active: rgba(40, 40, 45, 0.60);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+:root[data-tier='expressive'].theme-light,
+:root[data-tier='expressive']:not(.theme-dark) {
+  --glass:        rgba(255, 255, 255, 0.55);
+  --glass-hover:  rgba(255, 255, 255, 0.72);
+  --glass-active: rgba(255, 255, 255, 0.90);
+}
+
+/* The cosmos replaces the static wash entirely. */
+:root[data-tier='expressive'] body { background-image: none; }
+
+/* Cosmic backdrop — expressive tier only. Mount <div class="cosmos"> first
+   in <body>. Every other project uses a flat --bg. */
+.cosmos { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: var(--bg);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 95%);
+          mask-image: radial-gradient(ellipse at center, black 40%, transparent 95%); }
+.cosmos__blob { position: absolute; filter: blur(120px); opacity: 0.5; border-radius: 50%;
+  animation: cosmos-drift 20s infinite alternate var(--ease-smooth); }
+.cosmos__blob--1 { width: 60vw; height: 60vw; background: var(--accent); top: -10vw; left: -10vw; }
+.cosmos__blob--2 { width: 50vw; height: 50vw; background: #ec4899; bottom: -10vw; right: -10vw; animation-delay: -5s; }
+.cosmos__blob--3 { width: 40vw; height: 40vw; background: #10b981; top: 30vh; left: 30vw; animation-delay: -10s; }
+@keyframes cosmos-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(10vw, 5vh) scale(1.1); }
+  100% { transform: translate(-5vw, 15vh) scale(0.9); }
+}
+@media (prefers-color-scheme: light) { .cosmos__blob { opacity: 0.26; } }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

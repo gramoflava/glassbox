@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
+  <title>glassbox</title>
+  <rect x="4" y="4" width="24" height="24" rx="5" fill="none" stroke="#6d3ce0" stroke-width="3"/>
+  <rect x="10" y="12" width="10" height="9" rx="2" fill="none" stroke="#6d3ce0" stroke-width="2.5" opacity=".62"/>
+</svg>
