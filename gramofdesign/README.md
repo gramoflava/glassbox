@@ -20,6 +20,10 @@ rules. `whois` uses Tabler's `user-filled` silhouette on its blue accent
 squircle: it means “this is lava.” Brand marks live in `marks/`; interface
 actions still use the Tabler set in `icons/`.
 
+`hexports` uses Tabler's `chart-line` on its orange accent squircle: the mark
+describes local health time-series exploration without introducing a separate
+visual vocabulary.
+
 ## Files
 
 | File | What it is |

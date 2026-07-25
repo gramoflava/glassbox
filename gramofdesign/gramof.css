@@ -1025,7 +1025,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
 .btn-pair > button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
 
 @media (hover: none) and (pointer: coarse) {
-  .btn-pair > button { min-width: 44px; min-height: 40px; }
+  .btn-pair > button { min-width: 44px; min-height: 44px; }
 }
 
 /* ── Stat card (from hexports) ───────────────────────────────────────────── */
@@ -1048,6 +1048,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
    -------------------------------------------------------------------------- */
 
 :root[data-tier='expressive'] {
+  --font-sans: 'Outfit', 'Inter', -apple-system, sans-serif;
   --blur-panel: 56px;
   --blur-bar:   56px;
   --radius-lg:  20px;
@@ -1057,11 +1058,17 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
   --glass-active: rgba(40, 40, 45, 0.60);
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.7);
 }
-:root[data-tier='expressive'].theme-light,
-:root[data-tier='expressive']:not(.theme-dark) {
+:root[data-tier='expressive'].theme-light {
   --glass:        rgba(255, 255, 255, 0.55);
   --glass-hover:  rgba(255, 255, 255, 0.72);
   --glass-active: rgba(255, 255, 255, 0.90);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-tier='expressive']:not(.theme-light):not(.theme-dark) {
+    --glass:        rgba(255, 255, 255, 0.55);
+    --glass-hover:  rgba(255, 255, 255, 0.72);
+    --glass-active: rgba(255, 255, 255, 0.90);
+  }
 }
 
 /* The cosmos replaces the static wash entirely. */
@@ -1082,7 +1089,10 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
   50%  { transform: translate(10vw, 5vh) scale(1.1); }
   100% { transform: translate(-5vw, 15vh) scale(0.9); }
 }
-@media (prefers-color-scheme: light) { .cosmos__blob { opacity: 0.26; } }
+.theme-light .cosmos__blob { opacity: 0.26; }
+@media (prefers-color-scheme: light) {
+  :root:not(.theme-dark) .cosmos__blob { opacity: 0.26; }
+}
 
 /* ── Reduced motion ──────────────────────────────────────────────────────── */
 
