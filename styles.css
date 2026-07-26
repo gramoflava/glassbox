@@ -1,5 +1,9 @@
 /* glassbox — project layout on top of gramof design */
 
+[hidden] {
+  display: none !important;
+}
+
 .appbar {
   align-content: center;
 }
@@ -14,6 +18,18 @@
 .appbar-controls select {
   width: auto;
   background: var(--surface);
+}
+
+.target-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.button-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
 }
 
 #doc-name {
@@ -49,16 +65,75 @@
   font-size: var(--text-sm);
 }
 
-.select--compact {
+.aspect-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.aspect-control select {
   width: auto;
+  min-width: 88px;
+}
+
+.aspect-custom {
+  width: 78px;
+}
+
+.image-size-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.image-size-control input {
+  width: 68px;
+  padding-inline: var(--space-2);
+  font-family: var(--font-mono);
+}
+
+#image-size-status {
+  max-width: 240px;
+  white-space: nowrap;
+}
+
+#image-size-status.warn {
+  color: var(--warn);
 }
 
 .backdrop-range {
-  flex: 0 0 auto;
-  width: 88px;
+  width: min(220px, 28vw);
+}
+
+.backdrop-controls {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) auto minmax(120px, 220px) 42px auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.backdrop-controls[hidden] {
+  display: none;
+}
+
+.backdrop-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backdrop-controls output {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
 }
 
 .canvas-wrap {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   align-items: center;
@@ -66,6 +141,43 @@
   min-height: 0;
   padding: var(--space-4);
   overflow: hidden;
+}
+
+.mobile-edit {
+  display: none;
+}
+
+.json-view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3);
+}
+
+.json-view[hidden],
+.workspace[hidden] {
+  display: none !important;
+}
+
+.json-view__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.json-view > pre.json {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.json-actions {
+  flex: 0 0 auto;
 }
 
 .canvas {
@@ -156,9 +268,10 @@
 
 .box-label {
   position: absolute;
-  top: -1px;
-  left: -1px;
-  max-width: 200px;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  max-width: min(200px, calc(100% - 8px));
   overflow: hidden;
   padding: 1px 5px;
   color: var(--text-on-accent);
@@ -170,7 +283,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
-  transform: translateY(-100%);
+  transform: translate(-50%, -50%);
 }
 
 .box-label.unnamed {
@@ -225,6 +338,150 @@
 .box-row {
   margin-bottom: 7px;
   overflow: hidden;
+}
+
+.settings-card,
+.box-list-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-card {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.settings-card__icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.65;
+}
+
+.settings-card:hover,
+.box-list-item:hover,
+.box-list-item:focus-within {
+  background: var(--surface-sunk);
+}
+
+.box-list-item__open {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.box-list-item__open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.settings-card__copy,
+.box-list-item__copy {
+  min-width: 0;
+}
+
+.settings-card__title,
+.box-list-item__title {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.settings-card__summary,
+.box-list-item__summary {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.composition-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-4) var(--space-2) var(--space-2);
+}
+
+.composition-head strong {
+  flex: 1 1 auto;
+}
+
+.box-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.box-list > .hint {
+  padding: var(--space-3);
+}
+
+.box-list-item {
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.box-list-item:last-child {
+  border-bottom: 0;
+}
+
+.box-list-item.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.box-list-item .btn--icon {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  #hint-coords {
+    display: none;
+  }
+}
+
+.editor-dialog {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+  margin: auto;
+}
+
+.editor-dialog .dlg__body {
+  max-height: min(72dvh, 760px);
+  overflow-y: auto;
+}
+
+.editor-dialog textarea {
+  min-height: 150px;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.editor-dialog .acc__body {
+  padding-inline: 0;
 }
 
 .box-row.selected {
@@ -282,6 +539,34 @@
   padding: 4px 9px 10px;
 }
 
+.geometry-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.geometry-grid input {
+  min-width: 0;
+}
+
+.placement-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.placement-toggle input {
+  margin: 0;
+}
+
+.coord-preview {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
 .row {
   display: flex;
   align-items: flex-end;
@@ -323,6 +608,20 @@
   border-radius: var(--radius-sm);
   font-size: var(--text-2xs);
   line-height: 1.45;
+}
+
+.target-note {
+  margin: 3px 5px 9px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+dialog {
+  margin: auto;
 }
 
 pre.json {
@@ -401,6 +700,10 @@ pre.json {
 }
 
 @media (max-width: 640px) {
+  dialog {
+    margin: 0;
+  }
+
   .dlg__foot {
     flex-wrap: wrap;
   }
@@ -445,6 +748,12 @@ pre.json {
     min-height: 58dvh;
   }
 
+  .inspector--sheet {
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    z-index: 180;
+    max-height: calc(72dvh - 52px);
+  }
+
   .stage-bar {
     margin-top: var(--space-1);
   }
@@ -452,6 +761,78 @@ pre.json {
   .canvas-wrap {
     min-height: 52vh;
     padding: var(--space-2);
+  }
+
+  .backdrop-controls {
+    grid-template-columns: 1fr auto;
+  }
+
+  .backdrop-controls label {
+    grid-column: 1 / -1;
+  }
+
+  .backdrop-range {
+    width: 100%;
+  }
+
+  .backdrop-name {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-edit:not([hidden]) {
+    position: absolute;
+    right: var(--space-4);
+    bottom: var(--space-4);
+    z-index: 12;
+    display: inline-flex;
+    box-shadow: var(--shadow-md);
+  }
+
+  .canvas {
+    cursor: default;
+    touch-action: pan-x pan-y;
+  }
+
+  .json-view {
+    min-height: calc(100dvh - 104px);
+    padding: var(--space-2);
+  }
+
+  .json-view__head {
+    align-items: flex-start;
+  }
+
+  .json-actions {
+    flex-wrap: nowrap;
+  }
+
+  .editor-dialog {
+    width: 100vw;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  .tabbar__btn img {
+    width: 21px;
+    height: 21px;
+    opacity: 0.8;
+  }
+
+  .editor-dialog .dlg__body {
+    max-height: 76dvh;
+  }
+
+  .box {
+    cursor: pointer;
+  }
+
+  .handle {
+    display: none;
+  }
+
+  .geometry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .slot {

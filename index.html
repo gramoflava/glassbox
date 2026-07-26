@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light dark">
   <title>glassbox — structured prompt builder</title>
   <meta name="description"
-    content="Draw the boxes, get valid JSON. A local-only canvas for building structured prompts for Ideogram 4.0, FLUX.2, Krea 2 and generic JSON.">
+    content="A browser-only visual builder for DrawThings Ideogram 4.0 structured prompts.">
   <script>
     (function () {
       var t = null;
@@ -43,21 +43,35 @@
     <span class="brand"><span class="brand-mark"></span>glassbox</span>
 
     <div class="appbar-controls">
-      <select id="target" title="Target generator"></select>
+      <span class="target-name">DrawThings Ideogram 4.0</span>
+      <select id="target" title="Target generator" hidden aria-hidden="true"></select>
 
       <span class="appbar__sep"></span>
       <button class="btn" id="btn-open" title="Open a saved work (⌘O)">Open</button>
-      <button class="btn" id="btn-save" title="Save to a named slot (⌘S)">Save</button>
+      <button class="btn" id="btn-save" title="Update the current saved work (⌘S)">Save</button>
+      <button class="btn" id="btn-save-as" title="Create another saved work">Save as…</button>
 
       <span class="appbar__sep"></span>
-      <button class="btn" id="btn-paste" title="Paste JSON from a generator (⌘⇧V)">Paste JSON</button>
-      <button class="btn btn--primary" id="btn-copy" title="Copy JSON for this target (⌘⇧C)">Copy JSON</button>
+      <button class="btn" id="btn-paste" title="Paste JSON from a generator (⌘⇧V)">
+        <img class="button-icon" src="gramofdesign/icons/braces.svg" alt="">Paste JSON
+      </button>
+      <button class="btn btn--primary" id="btn-copy" title="Copy JSON for this target (⌘⇧C)">
+        <img class="button-icon" src="gramofdesign/icons/copy.svg" alt="">Copy JSON
+      </button>
     </div>
 
     <span class="appbar__spacer"></span>
 
+    <div class="segmented hide-narrow" role="group" aria-label="Workspace view">
+      <button class="segmented__btn is-active" type="button" data-view="editor" aria-pressed="true">Editor</button>
+      <button class="segmented__btn" type="button" data-view="json" aria-pressed="false">Plain JSON</button>
+    </div>
+
     <span id="doc-name" class="hint hide-narrow"></span>
-    <button class="btn btn--quiet hide-narrow" id="btn-data" title="Stored data and cleanup">Data</button>
+    <button class="btn btn--quiet btn--icon hide-narrow" id="btn-data"
+      aria-label="Settings and stored data" title="Settings and stored data">
+      <img class="button-icon" src="gramofdesign/icons/adjustments-x.svg" alt="">
+    </button>
     <div class="segmented segmented--icon" role="group" aria-label="Color theme" data-theme-switch>
       <button class="segmented__btn" type="button" data-theme="light" aria-label="Light" title="Light"
         aria-pressed="false">
@@ -79,28 +93,51 @@
     </div>
   </header>
 
-  <!-- ── main split: canvas left, accordion right ──────────────────────── -->
+  <!-- ── main split: canvas left, composition list right ───────────────── -->
   <div class="workspace">
 
     <section class="stage">
       <div class="stage-bar scroller">
-        <label class="shrink" for="aspect">Frame</label>
-        <select id="aspect" class="select--compact"></select>
+        <label class="shrink" id="aspect-label" for="aspect">Frame</label>
+        <div class="aspect-control">
+          <select id="aspect" aria-label="Frame ratio" aria-describedby="aspect-error"></select>
+          <input id="aspect-custom" class="aspect-custom" aria-label="Custom frame ratio"
+            aria-describedby="aspect-error" placeholder="32:17" hidden>
+        </div>
+        <span class="hint err" id="aspect-error" hidden>Use a ratio such as 32:17.</span>
+
+        <div class="image-size-control" id="image-size-control" hidden>
+          <label for="image-width">Image</label>
+          <input id="image-width" type="number" min="1" step="1" inputmode="numeric"
+            placeholder="1152" aria-label="Image width">
+          <span aria-hidden="true">×</span>
+          <input id="image-height" type="number" min="1" step="1" inputmode="numeric"
+            placeholder="896" aria-label="Image height">
+          <span class="hint" id="image-size-status"></span>
+        </div>
 
         <span class="appbar__sep"></span>
         <button class="btn" id="btn-add">Add box</button>
         <button class="btn" id="btn-dup" disabled>Duplicate</button>
         <button class="btn btn--danger" id="btn-del" disabled>Delete</button>
+        <button class="btn btn--quiet btn--danger" id="btn-clear-canvas" type="button">
+          Clear canvas
+        </button>
 
         <span class="appbar__sep"></span>
         <button class="btn" id="btn-backdrop">Backdrop…</button>
         <input type="file" id="backdrop-file" accept="image/*" hidden>
-        <label for="backdrop-opacity" class="shrink" id="opacity-label" hidden>Opacity</label>
-        <input type="range" id="backdrop-opacity" class="backdrop-range" min="0" max="100" value="45" hidden>
-        <button class="btn btn--quiet" id="btn-backdrop-clear" hidden>Remove</button>
 
         <span class="appbar__spacer"></span>
         <span id="hint-coords" class="hint"></span>
+      </div>
+
+      <div class="backdrop-controls solid" id="backdrop-controls" hidden>
+        <span class="backdrop-name" id="backdrop-name"></span>
+        <label for="backdrop-opacity">Backdrop opacity</label>
+        <input type="range" id="backdrop-opacity" class="backdrop-range" min="0" max="100" value="45">
+        <output id="backdrop-opacity-value" for="backdrop-opacity">45%</output>
+        <button class="btn btn--quiet btn--danger" id="btn-backdrop-clear">Remove backdrop</button>
       </div>
 
       <div class="canvas-wrap glass" id="canvas-wrap">
@@ -111,11 +148,32 @@
             Drag anywhere to draw a box.<br>Drop an image here to use it as a backdrop.
           </div>
         </div>
+        <button class="btn btn--primary mobile-edit" id="btn-edit-selected" type="button" hidden>
+          Edit selected box
+        </button>
       </div>
     </section>
 
     <aside class="inspector inspector--sheet" id="inspector" aria-label="Prompt inspector"></aside>
   </div>
+
+  <section class="json-view" id="json-view" hidden aria-label="Plain JSON">
+    <header class="json-view__head">
+      <div>
+        <strong>Plain JSON</strong>
+        <div class="hint" id="json-target"></div>
+      </div>
+      <div class="row json-actions">
+        <button class="btn" id="json-copy" type="button">
+          <img class="button-icon" src="gramofdesign/icons/copy.svg" alt="">Copy
+        </button>
+        <button class="btn" id="json-download" type="button">
+          <img class="button-icon" src="gramofdesign/icons/download.svg" alt="">Download
+        </button>
+      </div>
+    </header>
+    <pre class="json sunk" id="json-out"></pre>
+  </section>
 
   <nav class="tabbar" aria-label="Mobile workspace">
     <button class="tabbar__btn is-active" type="button" data-mobile-panel="canvas" aria-current="page">
@@ -139,25 +197,42 @@
       <span>JSON</span>
     </button>
     <button class="tabbar__btn" type="button" data-mobile-panel="data">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <ellipse cx="12" cy="6" rx="8" ry="3"></ellipse>
-        <path d="M4 6v6c0 1.657 3.582 3 8 3s8 -1.343 8 -3V6M4 12v6c0 1.657 3.582 3 8 3s8 -1.343 8 -3v-6">
-        </path>
-      </svg>
-      <span>Data</span>
+      <img src="gramofdesign/icons/adjustments-x.svg" alt="">
+      <span>Settings</span>
     </button>
   </nav>
 
   <!-- ── dialogs ───────────────────────────────────────────────────────── -->
+
+  <dialog id="dlg-settings" class="editor-dialog">
+    <form method="dialog">
+      <div class="dlg__head">Prompt settings</div>
+      <div class="dlg__body" id="settings-editor"></div>
+      <div class="dlg__foot">
+        <button class="btn" id="settings-editor-cancel" type="button">Cancel</button>
+        <button class="btn btn--primary" id="settings-editor-done" type="button">Apply</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-box" class="editor-dialog">
+    <form method="dialog">
+      <div class="dlg__head" id="box-editor-title">Edit box</div>
+      <div class="dlg__body" id="box-editor"></div>
+      <div class="dlg__foot">
+        <button class="btn" id="box-editor-cancel" type="button">Cancel</button>
+        <button class="btn btn--primary" id="box-editor-done" type="button">Apply</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="dlg-paste">
     <form method="dialog">
       <div class="dlg__head">Paste JSON</div>
       <div class="dlg__body">
         <div class="hint">
-          Read as <strong id="paste-target"></strong>, falling back to a structural scan if that
-          finds nothing. Validated before anything is replaced — a malformed paste changes nothing.
-          Labels and colours are kept for boxes that land in roughly the same place.
+          Validated strictly as <strong id="paste-target"></strong>. Unsupported keys and shapes
+          from another target are rejected before anything is replaced.
         </div>
         <textarea id="paste-text" placeholder='{ "scene": "…" }' spellcheck="false"></textarea>
         <div class="hint err" id="paste-error"></div>
@@ -165,17 +240,18 @@
       </div>
       <div class="dlg__foot">
         <button class="btn" value="cancel">Cancel</button>
-        <button class="btn btn--primary" id="paste-ok" value="ok" type="button">Replace canvas</button>
+        <button class="btn btn--primary" id="paste-ok" value="ok" type="button">Import JSON</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="dlg-save">
     <form method="dialog">
-      <div class="dlg__head">Save work</div>
+      <div class="dlg__head">Save as new work</div>
       <div class="dlg__body">
+        <div class="hint" id="save-current" hidden></div>
         <div class="field">
-          <label for="save-name">Name</label>
+          <label for="save-name">Name for the new copy</label>
           <input type="text" id="save-name" placeholder="forest scene — wolf and moose">
         </div>
         <div class="hint">
@@ -189,7 +265,7 @@
           <button class="btn" id="save-copy" type="button">Copy work JSON</button>
           <button class="btn" id="save-file" type="button">Download file</button>
         </div>
-        <button class="btn btn--primary" id="save-ok" type="button" value="ok">Save slot</button>
+        <button class="btn btn--primary" id="save-ok" type="button" value="ok">Save as new</button>
       </div>
     </form>
   </dialog>

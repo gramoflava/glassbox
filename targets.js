@@ -54,7 +54,8 @@
    draw the box, this writes the sentence. Tune the vocabulary here if a model
    responds better to different wording.
 
-   (Ideogram and Krea 2 do take real coordinates — see their descriptors.) */
+   (Ideogram takes real coordinates. Krea 2 is an experimental soft-guidance
+   target: its public interface does not expose native bbox control.) */
 
 const GEO = {
   columns: [
@@ -280,8 +281,8 @@ const TARGET_GENERAL = {
 
 const TARGET_FLUX2 = {
   id: 'flux2',
-  name: 'FLUX.2',
-  blurb: 'Structured JSON pasted as the prompt. No numeric boxes — glassbox converts each box you draw into a placement phrase like "upper left third, medium".',
+  name: 'FLUX.2 · Structured prompt',
+  blurb: 'Black Forest Labs’ documented structured prompt. Boxes become the official subjects[].position wording; FLUX.2 does not use numeric bounding boxes or negative prompts.',
   boxes: 'prose',
   coords: 'None. Rectangles are rendered as placement + scale wording.',
   fields: [
@@ -291,18 +292,10 @@ const TARGET_FLUX2 = {
     F('style.palette', 'color_palette', 'Colour palette'),
     F('lighting', 'lighting', 'Lighting'),
     F('camera.angle', 'camera.angle', 'Camera angle'),
-    F('camera.distance', 'camera.distance', 'Camera distance'),
     F('camera.lens', 'camera.lens', 'Lens'),
+    F('camera.focus', 'camera.depth_of_field', 'Depth of field'),
     F('mood', 'mood', 'Mood'),
-    F('text.content', 'text.content', 'Rendered text', {
-      note: 'FLUX.2 renders in-image text well; keep it short and quote it exactly.',
-    }),
-    F('text.placement', 'text.placement', 'Text placement'),
-    F('negative', 'negative_prompt', 'Negative prompt', {
-      confidence: 'assumed',
-      note: 'FLUX.2 has no separate negative-prompt parameter; this is passed inside the JSON and may be treated as ordinary description. Prefer saying what you DO want.',
-    }),
-    F('aspect', 'aspect_ratio', 'Aspect ratio'),
+    F('composition', 'composition', 'Composition'),
   ],
 
   exportDoc(doc) {
@@ -310,22 +303,16 @@ const TARGET_FLUX2 = {
       scene: doc.scene,
       subjects: doc.boxes.map((b) => prune({
         description: b.prompt,
-        placement: rectToProse(b),
-        emphasis: b.weight !== 1 ? b.weight : undefined,
+        position: rectToProse(b),
+        action: b.action,
       })),
       background: doc.background,
       style: joinStyle(doc),
-      color_palette: doc.style.palette,
+      color_palette: splitList(doc.style.palette),
       lighting: doc.lighting,
-      camera: { angle: doc.camera.angle, distance: doc.camera.distance, lens: doc.camera.lens },
+      camera: { angle: doc.camera.angle, lens: doc.camera.lens, depth_of_field: doc.camera.focus },
       mood: doc.mood,
-      composition: doc.boxes.length
-        ? `${doc.boxes.length} subject${doc.boxes.length > 1 ? 's' : ''}, arranged as described in each placement`
-        : '',
-      text: { content: doc.text.content, placement: doc.text.placement },
-      negative_prompt: doc.negative,
-      aspect_ratio: doc.aspect,
-      ...doc.extras,
+      composition: doc.composition,
     });
   },
 
@@ -338,27 +325,23 @@ const TARGET_FLUX2 = {
       style: {
         type: '',
         descriptors: typeof json.style === 'string' ? json.style : (json.style?.descriptors || ''),
-        palette: json.color_palette || '',
+        palette: joinList(json.color_palette),
       },
       lighting: json.lighting || '',
+      composition: json.composition || '',
       camera: {
         angle: json.camera?.angle || '',
-        distance: json.camera?.distance || '',
         lens: json.camera?.lens || '',
+        focus: json.camera?.depth_of_field || '',
       },
       mood: json.mood || '',
-      text: { content: json.text?.content || '', placement: json.text?.placement || '' },
-      negative: json.negative_prompt || '',
-      seed: json.seed ?? null,
       boxes: subjects.map((s) => ({
-        rect: proseToRect(s.placement || s.position || ''),
+        rect: proseToRect(s.position || ''),
         prompt: s.description || s.subject || '',
-        weight: typeof s.emphasis === 'number' ? s.emphasis : 1,
-        depth: '',
+        action: s.action || s.pose || '',
       })),
-      consumed: ['scene', 'subjects', 'elements', 'background', 'style', 'color_palette',
-        'lighting', 'camera', 'mood', 'composition', 'text', 'negative_prompt',
-        'aspect_ratio', 'seed'],
+      consumed: ['scene', 'subjects', 'background', 'style', 'color_palette',
+        'lighting', 'camera', 'mood', 'composition'],
       warnings: subjects.length
         ? ['Boxes were reconstructed from placement wording, so the rectangles are approximate. Reposition them on the canvas.']
         : [],
@@ -377,8 +360,8 @@ const TARGET_FLUX2 = {
        bbox = [y_min, x_min, y_max, x_max]   ROW-FIRST, y before x
        normalized 0–1000, origin top-left
 
-   This is transposed relative to Krea 2, which uses [x1, y1, x2, y2] on the
-   same 0–1000 grid. The two formats look identical and are not.
+   This is distinct from the observed expanded format, which is x-first and
+   uses an aspect-shaped grid rather than a square 0–1000 grid.
 
    `aspect_ratio` is deliberately absent: it is a separate API parameter, not
    part of the prompt document.
@@ -386,8 +369,8 @@ const TARGET_FLUX2 = {
 
 const TARGET_IDEOGRAM = {
   id: 'ideogram',
-  name: 'Ideogram 4.0',
-  blurb: 'Real JSON prompting with bounding boxes, on a 0–1000 grid. Coordinates are ROW-FIRST — [y_min, x_min, y_max, x_max] — transposed from Krea 2. Best of the set at rendering legible text.',
+  name: 'Ideogram 4 · Model JSON',
+  blurb: 'Ideogram’s native structured caption. Bounding boxes are optional, row-first [y_min, x_min, y_max, x_max] on a 0–1000 grid. Key order and uppercase hex palettes follow the official CaptionVerifier contract.',
   boxes: 'numeric',
   bboxFormat: 'yxyx',
   grid: 1000,
@@ -396,45 +379,66 @@ const TARGET_IDEOGRAM = {
     F('scene', 'high_level_description', 'Scene', {
       note: 'Strongly recommended by Ideogram; the one-sentence summary of the whole image.',
     }),
+    F('style.mode', 'style_description.photo | art_style', 'Caption type'),
     F('style.descriptors', 'style_description.aesthetics', 'Aesthetics'),
     F('lighting', 'style_description.lighting', 'Lighting'),
-    F('style.type', 'style_description.art_style', 'Art style', {
-      note: 'Use art_style for illustration, or Medium for photographic work — Ideogram documents choosing one, not both.',
+    F('style.detail', 'style_description.photo | art_style', 'Photo / art style', {
+      note: 'Ideogram requires exactly one: photo for photographic captions, art_style for everything else.',
     }),
     F('style.medium', 'style_description.medium', 'Medium'),
     F('style.palette', 'style_description.color_palette', 'Colour palette', {
-      note: 'A list — hex values work well.',
+      note: 'Optional, up to 16 uppercase #RRGGBB values.',
     }),
     F('background', 'compositional_deconstruction.background', 'Background'),
-    F('aspect', '—', 'Aspect ratio', {
-      confidence: 'assumed',
-      note: 'Not part of the prompt document. Ideogram takes aspect ratio as a separate API parameter, so glassbox keeps it for the canvas but leaves it out of the JSON.',
-    }),
   ],
 
   exportDoc(doc) {
     const scale = scaleOf(this);
-    return prune({
-      high_level_description: doc.scene,
-      style_description: {
-        aesthetics: doc.style.descriptors,
-        lighting: doc.lighting,
-        art_style: doc.style.type,
-        medium: doc.style.medium,
-        color_palette: splitList(doc.style.palette),
-      },
-      compositional_deconstruction: {
-        background: doc.background,
-        elements: doc.boxes.map((b) => prune({
-          type: b.kind === 'text' ? 'text' : 'obj',
-          bbox: rectToBboxArray(b.rect, this.bboxFormat, scale),
-          desc: b.prompt,
-          text: b.kind === 'text' ? b.text : undefined,
-          color_palette: splitList(b.palette),
-        })),
-      },
-      ...doc.extras,
+    const palette = splitList(doc.style.palette)
+      .map((color) => color.toUpperCase())
+      .filter((color) => /^#[0-9A-F]{6}$/.test(color))
+      .slice(0, 16);
+    const hasStyle = Boolean(
+      doc.style.descriptors || doc.lighting || doc.style.detail || doc.style.medium || palette.length);
+    const style = hasStyle
+      ? doc.style.mode === 'photo'
+        ? {
+            aesthetics: doc.style.descriptors || '',
+            lighting: doc.lighting || '',
+            photo: doc.style.detail || '',
+            medium: doc.style.medium || 'photograph',
+            ...(palette.length ? { color_palette: palette } : {}),
+          }
+        : {
+            aesthetics: doc.style.descriptors || '',
+            lighting: doc.lighting || '',
+            medium: doc.style.medium || 'illustration',
+            art_style: doc.style.detail || '',
+            ...(palette.length ? { color_palette: palette } : {}),
+          }
+      : null;
+    const elements = doc.boxes.map((b) => {
+      const elementPalette = splitList(b.palette)
+        .map((color) => color.toUpperCase())
+        .filter((color) => /^#[0-9A-F]{6}$/.test(color))
+        .slice(0, 5);
+      const common = {
+        bbox: rectToBboxArray(b.rect, this.bboxFormat, scale),
+        desc: b.prompt || '',
+        ...(elementPalette.length ? { color_palette: elementPalette } : {}),
+      };
+      return b.kind === 'text'
+        ? { type: 'text', bbox: common.bbox, text: b.text || '', desc: common.desc, ...(common.color_palette ? { color_palette: common.color_palette } : {}) }
+        : { type: 'obj', bbox: common.bbox, desc: common.desc, ...(common.color_palette ? { color_palette: common.color_palette } : {}) };
     });
+    const result = {};
+    if (doc.scene) result.high_level_description = doc.scene;
+    if (style) result.style_description = style;
+    result.compositional_deconstruction = {
+      background: doc.background || '',
+      elements,
+    };
+    return result;
   },
 
   importDoc(json) {
@@ -446,9 +450,10 @@ const TARGET_IDEOGRAM = {
       scene: json.high_level_description || '',
       background: cd.background || '',
       style: {
-        type: sd.art_style || '',
+        mode: sd.photo !== undefined ? 'photo' : 'art',
         descriptors: sd.aesthetics || '',
-        medium: sd.medium || sd.photo || '',
+        medium: sd.medium || '',
+        detail: sd.photo || sd.art_style || '',
         palette: joinList(sd.color_palette),
       },
       lighting: sd.lighting || '',
@@ -467,105 +472,135 @@ const TARGET_IDEOGRAM = {
         palette: joinList(e.color_palette),
       })),
       consumed: ['high_level_description', 'style_description',
-        'compositional_deconstruction', 'aspect_ratio', 'seed'],
+        'compositional_deconstruction'],
     };
   },
 };
 
 /* =========================================================================
-   TARGET: Krea 2 — BBOX
+   TARGET: Ideogram 4 "Expand to JSON" output
 
-   VERIFIED against the Krea2 BBOX Prompter suite, which documents this exact
-   envelope. Krea 2's Qwen3-VL encoder reads the same compositional_deconstruction
-   shape Ideogram uses — but with a DIFFERENT axis order:
+   VERIFIED against DrawThings' public PromptJSONExpansion implementation and
+   the Ideogram 4 Magic Prompt system prompt it embeds:
 
-       bbox = [x1, y1, x2, y2]    x-first corners
-       normalized_1000 (the documented default), origin top-left
+       bbox = [y_min, x_min, y_max, x_max]
+       normalized 0–1000 on both axes, origin top-left
 
-   Ideogram's is [y_min, x_min, y_max, x_max]. Same envelope, transposed. If you
-   move a document between the two, convert — do not copy the numbers across.
-
-   This is also the shape Draw Things emits when asked for a structured prompt:
-   `aspect_ratio` at the top level is the giveaway, since Ideogram's own schema
-   has no such key.
+   Image dimensions are separate. DrawThings reduces width:height by their GCD
+   and forcibly writes that value into aspect_ratio after local LLM expansion.
    ========================================================================= */
 
-const TARGET_KREA = {
-  id: 'krea',
-  name: 'Krea 2 · BBox',
-  blurb: 'The compositional_deconstruction envelope on a 0–1000 grid. Also what Draw Things produces — the top-level aspect_ratio is the tell.',
+const TARGET_IDEOGRAM_EXPANDED = {
+  id: 'ideogram-expanded',
+  name: 'DrawThings Ideogram 4.0',
+  blurb: 'DrawThings’ verified Ideogram 4.0 expansion contract: row-first boxes on a 0–1000 grid. Image Size determines aspect_ratio; bbox is optional per element.',
   boxes: 'numeric',
-  bboxFormat: 'xyxy',
+  bboxFormat: 'yxyx',
   grid: 1000,
-  coords: 'Normalized 0–1000, origin top-left.',
-  coordOrderUnsettled:
-    'Krea publishes no bbox JSON spec — its own guidance is prose prompting, and this envelope is a '
-    + 'community convention read by a text encoder that treats regions as guidance rather than masks. '
-    + 'x-first follows the BBOX Prompter suite; row-first follows Ideogram, which the envelope borrows from. '
-    + 'Neither is authoritative. Generate once each way and keep whichever lands.',
+  imageSize: true,
+  coords: 'Verified DrawThings convention: [y_min, x_min, y_max, x_max], normalized 0–1000, origin top-left.',
   fields: [
     F('aspect', 'aspect_ratio', 'Aspect ratio'),
     F('scene', 'high_level_description', 'Scene'),
     F('background', 'compositional_deconstruction.background', 'Background'),
-    F('style.descriptors', 'style_description.aesthetics', 'Aesthetics', {
-      confidence: 'assumed',
-      note: 'The BBOX Prompter documents a compact envelope of aspect_ratio, high_level_description and compositional_deconstruction only. Style keys are carried over from the Ideogram shape and may be ignored.',
-    }),
-    F('lighting', 'style_description.lighting', 'Lighting', { confidence: 'assumed' }),
   ],
 
   exportDoc(doc) {
     const scale = scaleOf(this);
-    return prune({
+    return {
       aspect_ratio: doc.aspect,
       high_level_description: doc.scene,
-      style_description: {
-        aesthetics: doc.style.descriptors,
-        lighting: doc.lighting,
-      },
       compositional_deconstruction: {
         background: doc.background,
-        elements: doc.boxes.map((b) => prune({
-          type: b.kind === 'text' ? 'text' : 'obj',
-          bbox: rectToBboxArray(b.rect, this.bboxFormat, scale),
-          desc: b.prompt,
-          text: b.kind === 'text' ? b.text : undefined,
+        elements: doc.boxes.map((box) => ({
+          type: box.kind === 'text' ? 'text' : 'obj',
+          ...(box.hasBbox === false ? {} : {
+            bbox: rectToBboxArray(box.rect, this.bboxFormat, scale),
+          }),
+          ...(box.kind === 'text' ? { text: box.text || '' } : {}),
+          desc: box.prompt,
         })),
       },
-      ...doc.extras,
-    });
+    };
   },
 
   importDoc(json) {
     const cd = json.compositional_deconstruction || {};
-    const sd = json.style_description || {};
     const scale = scaleOf(this);
     return {
       aspect: json.aspect_ratio || '',
-      scene: json.high_level_description || json.prompt || '',
+      scene: json.high_level_description || '',
       background: cd.background || '',
-      style: {
-        type: '', medium: '',
-        descriptors: sd.aesthetics || json.style || '',
-        palette: joinList(sd.color_palette),
-      },
-      lighting: sd.lighting || '',
-      mood: '',
-      camera: { angle: '', distance: '', lens: '' },
-      text: { content: '', placement: '' },
-      negative: json.negative_prompt || '',
-      seed: json.seed ?? null,
-      boxes: (cd.elements || json.regions || []).map((e) => ({
-        rect: bboxArrayToRect(e.bbox || e.box, this.bboxFormat, scale),
-        prompt: e.desc || e.description || e.prompt || '',
-        weight: typeof e.weight === 'number' ? e.weight : 1,
-        depth: '',
-        kind: e.type === 'text' ? 'text' : 'obj',
-        text: e.text || '',
-        palette: joinList(e.color_palette),
+      boxes: (cd.elements || []).map((element) => ({
+        rect: bboxArrayToRect(element.bbox, this.bboxFormat, scale),
+        hasBbox: Array.isArray(element.bbox),
+        prompt: element.desc || '',
+        kind: element.type === 'text' ? 'text' : 'obj',
+        text: element.text || '',
       })),
-      consumed: ['aspect_ratio', 'high_level_description', 'style_description',
-        'compositional_deconstruction', 'negative_prompt', 'seed', 'regions', 'prompt', 'style'],
+      consumed: ['aspect_ratio', 'high_level_description', 'compositional_deconstruction'],
+    };
+  },
+};
+
+/* =========================================================================
+   TARGET: Krea 2 bbox experiment
+
+   Krea's technical report confirms that the model reads detailed JSON and
+   bounding-box prompts, but Krea publishes no schema. This deliberately narrow
+   descriptor supports the exact expanded Ideogram envelope used in the
+   supplied Krea/DrawThings experiments. Placement is soft rather than exact.
+   ========================================================================= */
+
+const TARGET_KREA = {
+  id: 'krea',
+  name: 'Krea 2 · BBox experiment',
+  blurb: 'Krea confirms exposure to JSON and bounding-box prompts but publishes no schema or native bbox control. This mode preserves the observed compact envelope; placement is soft and may be ignored.',
+  boxes: 'numeric',
+  bboxFormat: 'xyxy',
+  scale: observedExpandedScale,
+  dynamicGrid: true,
+  coords: 'Working convention: [x_min, y_min, x_max, y_max] on the expanded Ideogram aspect grid, canvas origin top-left. Krea may treat these as weak prompt guidance.',
+  coordOrderUnsettled: 'Experimental, not an official Krea API contract. The exported JSON is meant to be pasted as the prompt string.',
+  observedOutput: true,
+  fields: [
+    F('aspect', 'aspect_ratio', 'Aspect ratio'),
+    F('scene', 'high_level_description', 'Scene'),
+    F('background', 'compositional_deconstruction.background', 'Background'),
+  ],
+
+  exportDoc(doc) {
+    const scale = scaleOf(this, doc.aspect, doc);
+    return {
+      aspect_ratio: doc.aspect,
+      high_level_description: doc.scene,
+      compositional_deconstruction: {
+        background: doc.background,
+        elements: doc.boxes.map((box) => ({
+          type: box.kind === 'text' ? 'text' : 'obj',
+          bbox: rectToBboxArray(box.rect, this.bboxFormat, scale),
+          ...(box.text ? { text: box.text } : {}),
+          desc: box.prompt,
+        })),
+      },
+    };
+  },
+
+  importDoc(json) {
+    const cd = json.compositional_deconstruction || {};
+    const scale = inferObservedScale(json);
+    return {
+      aspect: json.aspect_ratio || '',
+      coordBasis: scale,
+      scene: json.high_level_description || '',
+      background: cd.background || '',
+      boxes: (cd.elements || []).map((element) => ({
+        rect: bboxArrayToRect(element.bbox, this.bboxFormat, scale),
+        prompt: element.desc || '',
+        kind: element.type === 'text' ? 'text' : 'obj',
+        text: element.text || '',
+      })),
+      consumed: ['aspect_ratio', 'high_level_description', 'compositional_deconstruction'],
     };
   },
 };
@@ -583,18 +618,18 @@ function joinList(v) {
 }
 
 function joinStyle(doc) {
-  return [doc.style.type, doc.style.descriptors].filter(Boolean).join(', ');
+  return [doc.style.detail, doc.style.descriptors].filter(Boolean).join(', ');
 }
 
 /**
  * Read a bbox array into a normalized rect.
  *
- * Three conventions are in play across the targets glassbox supports, and they
- * are NOT interchangeable:
+ * Coordinate helpers retain the three common formats used during development,
+ * though the shipped DrawThings target uses only row-first `yxyx`.
  *
  *   'xywh'  [x, y, width, height]        — the generic convention
- *   'xyxy'  [x1, y1, x2, y2]             — Krea 2 BBOX Prompter
- *   'yxyx'  [y_min, x_min, y_max, x_max] — Ideogram 4.0, row-first
+ *   'xyxy'  [x1, y1, x2, y2]
+ *   'yxyx'  [y_min, x_min, y_max, x_max] — DrawThings Ideogram 4.0
  *
  * The convention is DECLARED by the target, never guessed: the same four
  * numbers are a valid rectangle under all three, and picking wrong silently
@@ -642,8 +677,36 @@ function rectToBboxArray(rect, format, scale) {
   return [round(x0), round(y0), round(rect.w * sw), round(rect.h * sh)];
 }
 
+/** Legacy aspect-grid helper retained for unregistered development descriptors. */
+function aspectGridScale(aspect) {
+  const match = String(aspect || '').match(/^\s*(\d+(?:\.\d+)?)\s*[:x×\/]\s*(\d+(?:\.\d+)?)\s*$/i);
+  if (!match) return { w: 1000, h: 1000 };
+  return { w: Number(match[1]) * 100, h: Number(match[2]) * 100 };
+}
+
+function observedExpandedScale(_aspect, doc) {
+  const w = Number(doc?.coordBasis?.w);
+  const h = Number(doc?.coordBasis?.h);
+  return w > 0 && h > 0 ? { w, h } : { w: 1000, h: 1000 };
+}
+
+function inferObservedScale(json) {
+  const elements = json?.compositional_deconstruction?.elements || [];
+  const boxes = elements.map((element) => element?.bbox)
+    .filter((bbox) => Array.isArray(bbox) && bbox.length === 4);
+  if (!boxes.length) return { w: 1000, h: 1000 };
+  const maxX = Math.max(...boxes.flatMap((bbox) => [Number(bbox[0]), Number(bbox[2])]));
+  const maxY = Math.max(...boxes.flatMap((bbox) => [Number(bbox[1]), Number(bbox[3])]));
+  if (maxX <= 1000 && maxY <= 1000) return { w: 1000, h: 1000 };
+
+  const aspectScale = aspectGridScale(json.aspect_ratio);
+  if (maxX <= aspectScale.w && maxY <= aspectScale.h) return aspectScale;
+  return { w: Math.max(1000, maxX), h: Math.max(1000, maxY) };
+}
+
 /** The coordinate divisor a target uses, if any. */
-function scaleOf(t) {
+function scaleOf(t, aspect, doc) {
+  if (typeof t.scale === 'function') return t.scale(aspect, doc);
   return t.grid ? { w: t.grid, h: t.grid } : null;
 }
 
@@ -654,11 +717,11 @@ function dimsOf(json) {
   return (w > 0 && h > 0) ? { w, h } : null;
 }
 
-/* --- registry -------------------------------------------------------------
-   Order here is the order in the target picker. Add a new generator by adding
-   one object to this array. */
+/* --- shipped format -------------------------------------------------------
+   Experimental descriptors above are intentionally not registered. A format
+   should only be added here after it has been tested in the actual generator. */
 
-const TARGETS = [TARGET_GENERAL, TARGET_FLUX2, TARGET_IDEOGRAM, TARGET_KREA];
+const TARGETS = [TARGET_IDEOGRAM_EXPANDED];
 
 /* =========================================================================
    TOLERANT IMPORT
@@ -746,9 +809,10 @@ function detectBboxFormat(arrays) {
 /**
  * The coordinate scale implied by a set of boxes, or null if already 0–1.
  *
- * A 0–1000 grid is the documented convention for both Ideogram 4.0 and Krea 2,
- * so values that fit inside it are read as that grid rather than as pixels
- * scaled to whatever the boxes happen to span. Getting this wrong does not
+ * A 0–1000 grid is documented for Ideogram 4.0 model captions. Unknown
+ * documents that fit inside it are read as that grid rather than as pixels
+ * scaled to whatever the boxes happen to span.
+ * Getting this wrong does not
  * misplace boxes so much as STRETCH them: normalizing a 0–1000 document
  * against its own extents pushes everything outward toward the frame edges.
  */

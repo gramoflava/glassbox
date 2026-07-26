@@ -1,7 +1,7 @@
 /* ---------------------------------------------------------------------------
    glassbox — application
 
-   One canonical document, N target descriptors (see targets.js). The document
+   One canonical document and one verified target descriptor (see targets.js). The document
    is the only thing that is edited; JSON is always a rendering of it, never a
    source you type into. That is the whole reason the structure cannot break.
 --------------------------------------------------------------------------- */
@@ -12,33 +12,6 @@ const NS = 'glassbox.';
 const K_SLOTS = NS + 'slots';
 const K_DRAFT = NS + 'draft';
 const K_TARGET = NS + 'target';
-const K_COORDS = NS + 'coordorder';
-
-/* --- coordinate-order overrides -------------------------------------------
-   Ideogram publishes its axis order; Krea does not — its bbox JSON is a
-   community convention around a text encoder that reads the numbers loosely,
-   so there is no spec to be right about. That makes axis order an empirical
-   question, and empirical questions need a switch rather than a constant.
-
-   Overrides are applied onto the descriptor objects themselves, so every
-   exportDoc/importDoc that reads `this.bboxFormat` picks them up untouched. */
-
-function loadCoordOverrides() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(K_COORDS)) || {}; } catch { /* ignore */ }
-  for (const t of TARGETS) {
-    if (t.defaultBboxFormat === undefined) t.defaultBboxFormat = t.bboxFormat;
-    if (saved[t.id]) t.bboxFormat = saved[t.id];
-  }
-}
-
-function setCoordOrder(t, format) {
-  t.bboxFormat = format;
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(K_COORDS)) || {}; } catch { /* ignore */ }
-  if (format === t.defaultBboxFormat) delete saved[t.id]; else saved[t.id] = format;
-  try { localStorage.setItem(K_COORDS, JSON.stringify(saved)); } catch { /* ignore */ }
-}
 
 /** Human description of a target's current coordinate convention. */
 function coordsDescription(t) {
@@ -48,12 +21,15 @@ function coordsDescription(t) {
     xyxy: '[x1, y1, x2, y2] — x-first corners',
     yxyx: '[y_min, x_min, y_max, x_max] — row-first corners',
   }[t.bboxFormat || 'xywh'];
-  const scale = t.grid ? `normalized 0–${t.grid}` : 'normalized 0–1';
-  return `${order}, ${scale}, origin top-left.`;
+  const dims = scaleOf(t, doc.aspect);
+  const scale = t.dynamicGrid && dims
+    ? `aspect grid 0–${dims.w} × 0–${dims.h}`
+    : t.grid ? `normalized 0–${t.grid}` : 'normalized 0–1';
+  return `${order}, ${scale}, canvas origin top-left.`;
 }
 
 /* --- canonical field catalogue -------------------------------------------
-   Grouped for the accordion. Each entry is addressed by its dotted path in the
+   Grouped for the settings dialog. Each entry is addressed by its dotted path in the
    document; whether a given target keeps it comes from that target's `fields`. */
 
 const SECTIONS = [
@@ -62,13 +38,15 @@ const SECTIONS = [
       { path: 'scene', label: 'Scene', type: 'textarea', ph: 'a dense pine forest at first light, mist between the trunks' },
       { path: 'background', label: 'Background', type: 'textarea', ph: 'receding treeline, soft depth haze' },
       { path: 'mood', label: 'Mood', type: 'text', ph: 'still, watchful' },
+      { path: 'composition', label: 'Composition', type: 'text', ph: 'rule of thirds, balanced negative space' },
     ]
   },
   {
     title: 'Style', fields: [
-      { path: 'style.type', label: 'Style type', type: 'select', options: ['', 'AUTO', 'GENERAL', 'REALISTIC', 'DESIGN', 'FICTION'] },
+      { path: 'style.mode', label: 'Caption type', type: 'select', options: ['art', 'photo'] },
       { path: 'style.descriptors', label: 'Aesthetics', type: 'textarea', ph: 'painterly, muted naturalism, fine grain' },
       { path: 'style.medium', label: 'Medium', type: 'text', ph: 'oil on canvas, 35mm photograph' },
+      { path: 'style.detail', label: 'Photo / art style', type: 'text', ph: '35mm, f/1.4, bokeh or flat vector illustration' },
       { path: 'style.palette', label: 'Colour palette', type: 'text', ph: '#4a5d3a, #d9cbb0, #2c3e50' },
     ]
   },
@@ -78,18 +56,15 @@ const SECTIONS = [
       { path: 'camera.angle', label: 'Camera angle', type: 'text', ph: 'slightly low, eye level with the animals' },
       { path: 'camera.distance', label: 'Camera distance', type: 'text', ph: 'wide shot' },
       { path: 'camera.lens', label: 'Lens', type: 'text', ph: '35mm, shallow depth of field' },
-    ]
-  },
-  {
-    title: 'Text in image', fields: [
-      { path: 'text.content', label: 'Text content', type: 'text', ph: 'NORTHWOOD' },
-      { path: 'text.placement', label: 'Text placement', type: 'text', ph: 'lower centre, small' },
+      { path: 'camera.focus', label: 'Focus', type: 'text', ph: 'sharp subject, shallow depth of field' },
+      { path: 'camera.fNumber', label: 'F-number', type: 'text', ph: 'f/5.6' },
+      { path: 'camera.iso', label: 'ISO', type: 'number', ph: '200' },
     ]
   },
   {
     title: 'Output', fields: [
-      { path: 'negative', label: 'Negative prompt', type: 'textarea', ph: 'blur, extra limbs, watermark' },
       { path: 'seed', label: 'Seed', type: 'number', ph: 'blank for random' },
+      { path: 'krea.creativity', label: 'Creativity', type: 'select', options: ['raw', 'low', 'medium', 'high'] },
     ]
   },
 ];
@@ -98,8 +73,10 @@ const SECTIONS = [
 
 let doc = blankDoc();
 let targetId = localStorage.getItem(K_TARGET) || 'general';
+if (!TARGETS.some((item) => item.id === targetId)) targetId = TARGETS[0].id;
 let selectedId = null;
 let docName = '';
+let currentSlotName = '';
 const openBoxes = new Set();
 let backdrop = { url: '', name: '', opacity: 0.45 };
 
@@ -107,6 +84,11 @@ const $ = (sel) => document.querySelector(sel);
 const el = {
   canvas: $('#canvas'), wrap: $('#canvas-wrap'), inspector: $('#inspector'),
   target: $('#target'), aspect: $('#aspect'), empty: $('#canvas-empty'),
+  aspectCustom: $('#aspect-custom'),
+  imageSize: $('#image-size-control'),
+  imageWidth: $('#image-width'),
+  imageHeight: $('#image-height'),
+  imageSizeStatus: $('#image-size-status'),
   backdrop: $('#backdrop'), toast: $('#toast'), docName: $('#doc-name'),
   hintCoords: $('#hint-coords'),
 };
@@ -118,12 +100,14 @@ function blankDoc() {
     version: 1,
     aspect: '16:9',
     scene: '', background: '', mood: '',
-    style: { type: '', descriptors: '', medium: '', palette: '' },
+    style: { mode: 'art', descriptors: '', medium: '', detail: '', palette: '' },
     lighting: '',
-    camera: { angle: '', distance: '', lens: '' },
+    composition: '',
+    camera: { angle: '', distance: '', lens: '', focus: '', fNumber: '', iso: null },
     text: { content: '', placement: '' },
     negative: '', seed: null,
-    pixelBasis: null,      // remembered frame for targets that export pixels
+    krea: { creativity: 'medium', resolution: '1K' },
+    pixelBasis: null,      // actual output pixels; separate from a prompt's coordinate grid
     boxes: [],
     extras: {},
   };
@@ -148,8 +132,17 @@ function setPath(obj, path, value) {
 /* --- geometry ------------------------------------------------------------- */
 
 function aspectRatio(str) {
-  const m = String(str || '16:9').split(':').map(Number);
-  return (m[0] > 0 && m[1] > 0) ? m[0] / m[1] : 16 / 9;
+  return ratioOf(str) || 16 / 9;
+}
+
+function hasPixelBasis(value = doc.pixelBasis) {
+  return Number(value?.w) > 0 && Number(value?.h) > 0;
+}
+
+function canvasAspectRatio() {
+  return target().imageSize && hasPixelBasis()
+    ? Number(doc.pixelBasis.w) / Number(doc.pixelBasis.h)
+    : aspectRatio(doc.aspect);
 }
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -159,13 +152,22 @@ function clamp01(v) { return Math.max(0, Math.min(1, v)); }
  * "32:17" is perfectly valid and silently snapping it to 16:9 would move every
  * box you just imported.
  */
-function ensureAspectOption(value) {
-  if (!value || !ratioOf(value)) { doc.aspect = doc.aspect || '16:9'; return; }
-  if ([...el.aspect.options].some((o) => o.value === value)) return;
-  const o = document.createElement('option');
-  o.value = value;
-  o.textContent = value + ' (imported)';
-  el.aspect.appendChild(o);
+function setAspectValue(value) {
+  doc.aspect = ratioOf(value) ? String(value).trim() : (doc.aspect || '16:9');
+  if (!el.aspect) return;
+  el.aspect.querySelectorAll('[data-current-custom]').forEach((option) => option.remove());
+  if (ASPECTS.includes(doc.aspect)) {
+    el.aspect.value = doc.aspect;
+  } else {
+    const option = document.createElement('option');
+    option.value = doc.aspect;
+    option.textContent = `${doc.aspect} · custom`;
+    option.dataset.currentCustom = '';
+    el.aspect.insertBefore(option, el.aspect.querySelector('[value="__custom__"]'));
+    el.aspect.value = doc.aspect;
+  }
+  el.aspectCustom.hidden = true;
+  el.aspectCustom.value = doc.aspect;
 }
 
 function iou(a, b) {
@@ -182,7 +184,7 @@ function fitCanvas() {
   const pad = 32;
   const availW = Math.max(120, el.wrap.clientWidth - pad);
   const availH = Math.max(120, el.wrap.clientHeight - pad);
-  const r = aspectRatio(doc.aspect);
+  const r = canvasAspectRatio();
   let w = availW, h = w / r;
   if (h > availH) { h = availH; w = h * r; }
   el.canvas.style.width = Math.round(w) + 'px';
@@ -205,10 +207,12 @@ function renderCanvas() {
     node.style.width = (box.rect.w * 100) + '%';
     node.style.height = (box.rect.h * 100) + '%';
 
-    const label = document.createElement('div');
-    label.className = 'box-label' + (box.label ? '' : ' unnamed');
-    label.textContent = box.label || 'unlabelled';
-    node.appendChild(label);
+    if (box.label) {
+      const label = document.createElement('div');
+      label.className = 'box-label';
+      label.textContent = box.label;
+      node.appendChild(label);
+    }
 
     if (box.id === selectedId) {
       for (const dir of ['nw', 'ne', 'sw', 'se']) {
@@ -221,13 +225,26 @@ function renderCanvas() {
     el.canvas.appendChild(node);
   });
 
+  el.empty.innerHTML = isNarrowEditor()
+    ? 'Add an element, then tap it to select.<br>Use its editor for exact placement.'
+    : 'Drag anywhere to draw a box.<br>Drop an image here to use it as a backdrop.';
   el.empty.style.display = doc.boxes.length ? 'none' : 'flex';
   $('#btn-dup').disabled = $('#btn-del').disabled = !selectedId;
+  const edit = $('#btn-edit-selected');
+  edit.hidden = !selectedId;
+  if (selectedId) {
+    const selected = doc.boxes.find((box) => box.id === selectedId);
+    edit.textContent = `Edit ${selected?.label || 'selected box'}`;
+  }
 }
 
 /* --- pointer interaction: draw, move, resize ------------------------------ */
 
 let drag = null;
+
+function isNarrowEditor() {
+  return matchMedia('(max-width: 640px)').matches;
+}
 
 function canvasPoint(ev) {
   const r = el.canvas.getBoundingClientRect();
@@ -241,6 +258,11 @@ el.canvas.addEventListener('pointerdown', (ev) => {
   const handle = ev.target.closest('.handle');
   const boxNode = ev.target.closest('.box');
 
+  if (isNarrowEditor()) {
+    if (boxNode) select(boxNode.dataset.id, { scroll: false });
+    return;
+  }
+
   if (handle && boxNode) {
     const box = doc.boxes.find((b) => b.id === boxNode.dataset.id);
     drag = { mode: 'resize', dir: handle.dataset.dir, box, start: p, orig: { ...box.rect } };
@@ -251,11 +273,12 @@ el.canvas.addEventListener('pointerdown', (ev) => {
   } else {
     const box = {
       id: nextId(), rect: { x: p.x, y: p.y, w: 0, h: 0 },
-      prompt: '', weight: 1, depth: '', kind: 'obj', text: '', palette: '', label: '', color: 'grey',
+      hasBbox: true,
+      prompt: '', action: '', weight: 1, depth: '', kind: 'obj', text: '', palette: '', label: '', color: 'grey',
     };
     doc.boxes.push(box);
     selectedId = box.id;
-    openBoxes.add(box.id);
+    setOnlyOpenBox(box.id);
     drag = { mode: 'draw', box, start: p, orig: { ...box.rect }, isNew: true };
     renderCanvas();
   }
@@ -314,12 +337,25 @@ function updateBoxNode(box) {
   node.style.height = (box.rect.h * 100) + '%';
 }
 
-function select(id) {
-  if (selectedId === id) return;
-  selectedId = id;
+function setOnlyOpenBox(id) {
+  openBoxes.clear();
   if (id) openBoxes.add(id);
+}
+
+function scrollSelectedBox(behavior = 'smooth') {
+  if (!selectedId) return;
+  const row = el.inspector.querySelector(`[data-box-id="${selectedId}"]`);
+  row?.scrollIntoView({ block: 'nearest', behavior });
+}
+
+function select(id, options = {}) {
+  selectedId = id;
+  setOnlyOpenBox(id);
   renderCanvas();
   renderInspector();
+  if (id && options.scroll !== false && !isNarrowEditor()) {
+    requestAnimationFrame(() => scrollSelectedBox());
+  }
 }
 
 /* --- backdrop ------------------------------------------------------------- */
@@ -329,6 +365,16 @@ function setBackdrop(file) {
   if (backdrop.url) URL.revokeObjectURL(backdrop.url);
   backdrop = { url: URL.createObjectURL(file), name: file.name, opacity: backdrop.opacity };
   applyBackdrop();
+  if (target().imageSize && !hasPixelBasis()) {
+    const image = new Image();
+    image.onload = () => {
+      doc.pixelBasis = { w: image.naturalWidth, h: image.naturalHeight };
+      setAspectValue(reducedRatio(image.naturalWidth, image.naturalHeight));
+      renderImageSizeControls();
+      fitCanvas(); renderCanvas(); renderInspector(); showCoordHint(); persistDraft();
+    };
+    image.src = backdrop.url;
+  }
 }
 
 function applyBackdrop() {
@@ -336,13 +382,20 @@ function applyBackdrop() {
   el.backdrop.src = backdrop.url || '';
   el.backdrop.style.display = on ? 'block' : 'none';
   el.backdrop.style.opacity = backdrop.opacity;
-  for (const id of ['#backdrop-opacity', '#opacity-label', '#btn-backdrop-clear']) $(id).hidden = !on;
+  $('#backdrop-controls').hidden = !on;
+  $('#backdrop-name').textContent = backdrop.name || 'Backdrop';
+  $('#backdrop-opacity').value = Math.round(backdrop.opacity * 100);
+  $('#backdrop-opacity-value').textContent = `${Math.round(backdrop.opacity * 100)}%`;
   $('#btn-backdrop').textContent = on ? 'Replace…' : 'Backdrop…';
 }
 
 $('#btn-backdrop').onclick = () => $('#backdrop-file').click();
 $('#backdrop-file').onchange = (e) => { setBackdrop(e.target.files[0]); e.target.value = ''; };
-$('#backdrop-opacity').oninput = (e) => { backdrop.opacity = e.target.value / 100; el.backdrop.style.opacity = backdrop.opacity; };
+$('#backdrop-opacity').oninput = (e) => {
+  backdrop.opacity = e.target.value / 100;
+  el.backdrop.style.opacity = backdrop.opacity;
+  $('#backdrop-opacity-value').textContent = `${e.target.value}%`;
+};
 $('#btn-backdrop-clear').onclick = () => {
   if (backdrop.url) URL.revokeObjectURL(backdrop.url);
   backdrop = { url: '', name: '', opacity: backdrop.opacity };
@@ -363,112 +416,269 @@ function fieldSpecFor(path) {
   return target().fields.find((f) => f.path === path) || null;
 }
 
+function reducedRatio(w, h) {
+  let a = Math.round(w), b = Math.round(h);
+  while (b) [a, b] = [b, a % b];
+  const divisor = a || 1;
+  return `${Math.round(w / divisor)}:${Math.round(h / divisor)}`;
+}
+
+function renderImageSizeStatus() {
+  const status = el.imageSizeStatus;
+  status.classList.remove('warn');
+  status.removeAttribute('title');
+  if (!target().imageSize) {
+    status.textContent = '';
+    return;
+  }
+  if (!hasPixelBasis()) {
+    status.textContent = 'sets JSON ratio';
+    return;
+  }
+  const { w, h } = doc.pixelBasis;
+  const imageRatio = w / h;
+  const jsonRatio = aspectRatio(doc.aspect);
+  const mismatch = Math.abs(imageRatio - jsonRatio) / jsonRatio;
+  const imageLabel = reducedRatio(w, h);
+  if (mismatch < 0.002) {
+    status.textContent = `${imageLabel} · JSON synced`;
+  } else {
+    status.textContent = `${imageLabel} · JSON ${doc.aspect}`;
+    status.classList.add('warn');
+    status.title = 'Image Size and aspect_ratio differ. Re-enter Image Size to synchronize them.';
+  }
+}
+
+function renderImageSizeControls() {
+  const enabled = Boolean(target().imageSize);
+  el.imageSize.hidden = !enabled;
+  $('#aspect-label').textContent = enabled ? 'Ratio' : 'Frame';
+  if (!enabled) return;
+  el.imageWidth.value = hasPixelBasis() ? doc.pixelBasis.w : '';
+  el.imageHeight.value = hasPixelBasis() ? doc.pixelBasis.h : '';
+  renderImageSizeStatus();
+}
+
 function renderInspector() {
   const t = target();
+  renderImageSizeControls();
   const frag = document.createDocumentFragment();
 
-  /* Target note — what this target can and cannot do. */
-  frag.appendChild(accordion('Target', [], (body) => {
-    body.appendChild(hint(t.blurb));
+  const targetInfo = document.createElement('div');
+  targetInfo.className = 'target-note';
+  targetInfo.textContent = 'DrawThings Ideogram 4.0 · row-first · 0–1000';
+  targetInfo.title = `${t.blurb} ${coordsDescription(t)}`;
+  frag.appendChild(targetInfo);
 
-    if (t.boxes === 'numeric') {
-      /* Axis order is a switch, not a constant — see loadCoordOverrides. */
-      const f = document.createElement('div');
-      f.className = 'field' + (t.coordOrderUnsettled ? ' assumed' : '');
-      const lab = document.createElement('label');
-      lab.textContent = 'Coordinate order';
-      const key = document.createElement('span');
-      key.className = 'field__key';
-      key.textContent = t.bboxFormat === t.defaultBboxFormat ? 'default' : 'overridden';
-      lab.appendChild(key);
-      const sel = document.createElement('select');
-      for (const [v, txt] of [
-        ['xywh', '[x, y, width, height]'],
-        ['xyxy', '[x1, y1, x2, y2] — x-first'],
-        ['yxyx', '[y, x, y, x] — row-first'],
-      ]) {
-        const o = document.createElement('option');
-        o.value = v; o.textContent = txt;
-        sel.appendChild(o);
-      }
-      sel.value = t.bboxFormat || 'xywh';
-      sel.addEventListener('change', () => {
-        setCoordOrder(t, sel.value);
-        renderInspector();
-        showCoordHint();
-        toast('Coordinate order changed. Your boxes have not moved — only the numbers written out.');
-      });
-      f.append(lab, sel);
-      body.appendChild(f);
-      body.appendChild(hint(coordsDescription(t)));
+  const settings = document.createElement('button');
+  settings.type = 'button';
+  settings.className = 'settings-card solid';
+  const settingsIcon = document.createElement('img');
+  settingsIcon.className = 'settings-card__icon';
+  settingsIcon.src = 'gramofdesign/icons/adjustments-x.svg';
+  settingsIcon.alt = '';
+  const settingsCopy = document.createElement('span');
+  settingsCopy.className = 'settings-card__copy';
+  const settingsTitle = document.createElement('span');
+  settingsTitle.className = 'settings-card__title';
+  settingsTitle.textContent = 'Prompt settings';
+  const settingsSummary = document.createElement('span');
+  settingsSummary.className = 'settings-card__summary';
+  settingsSummary.textContent = doc.scene || 'Scene, style, lighting and output settings';
+  settingsCopy.append(settingsTitle, settingsSummary);
+  const settingsArrow = document.createElement('span');
+  settingsArrow.textContent = 'Edit';
+  settingsArrow.className = 'hint';
+  settings.append(settingsIcon, settingsCopy, settingsArrow);
+  settings.onclick = openSettingsDialog;
+  frag.appendChild(settings);
 
-      if (t.coordOrderUnsettled) {
-        body.appendChild(hint(t.coordOrderUnsettled, true));
-      }
-    } else if (t.boxes === 'prose') {
-      body.appendChild(hint(
-        'This target has no coordinates. Each box you draw is exported as a placement phrase — '
-        + 'glassbox writes the wording for you.'));
-    }
+  const head = document.createElement('div');
+  head.className = 'composition-head';
+  const heading = document.createElement('strong');
+  heading.textContent = t.id === 'flux2' ? 'Subjects' : 'Elements';
+  const count = badge(String(doc.boxes.length));
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'btn';
+  add.textContent = 'Add';
+  add.onclick = addBox;
+  head.append(heading, count, add);
+  frag.appendChild(head);
 
-    if (t.unverified) {
-      body.appendChild(hint(
-        'Field names for this target are unverified. Check them against a real export before trusting them, ' +
-        'and correct targets.js when you know better.', true));
-    }
-  }, false));
-
-  /* Canonical field sections. */
-  for (const section of SECTIONS) {
-    const supported = section.fields.filter((f) => fieldSpecFor(f.path)).length;
-    frag.appendChild(accordion(section.title, [badge(`${supported}/${section.fields.length}`)], (body) => {
-      for (const f of section.fields) body.appendChild(renderField(f));
-    }, section.open));
-  }
-
-  /* Boxes. */
-  frag.appendChild(accordion('Boxes', [badge(String(doc.boxes.length))], (body) => {
-    body.appendChild(hint(
-      'Labels and colours are yours alone — they are stripped from every export, are not expected on paste, ' +
-      'and are kept in saved works.'));
-    if (!doc.boxes.length) body.appendChild(hint('Drag on the canvas to draw one.'));
-    for (const box of doc.boxes) body.appendChild(renderBoxRow(box));
-  }, true));
-
-  /* Anything a paste brought in that no target claims. */
-  const extraKeys = Object.keys(doc.extras || {});
-  if (extraKeys.length) {
-    frag.appendChild(accordion('Unrecognised keys', [badge(String(extraKeys.length))], (body) => {
-      body.appendChild(hint(
-        'These came in with a paste and belong to no field glassbox knows. They are preserved and passed ' +
-        'straight through to every export, untouched.', true));
-      const pre = document.createElement('pre');
-      pre.className = 'json sunk';
-      pre.textContent = JSON.stringify(doc.extras, null, 2);
-      body.appendChild(pre);
-      const drop = document.createElement('button');
-      drop.className = 'btn btn--danger';
-      drop.textContent = 'Discard them';
-      drop.onclick = () => { doc.extras = {}; renderInspector(); renderJson(); persistDraft(); };
-      body.appendChild(drop);
-    }, true));
-  }
-
-  /* Read-only JSON. */
-  frag.appendChild(accordion('JSON', [badge('read-only')], (body) => {
-    const pre = document.createElement('pre');
-    pre.className = 'json sunk';
-    pre.id = 'json-out';
-    body.appendChild(pre);
-    const b = document.createElement('button');
-    b.className = 'btn';
-    b.textContent = 'Copy to clipboard';
-    b.onclick = copyJson;
-    body.appendChild(b);
-  }, true));
+  const list = document.createElement('div');
+  list.className = 'box-list';
+  if (!doc.boxes.length) list.appendChild(hint(
+    isNarrowEditor() ? 'Add an element, then set its frame position in the editor.' : 'Draw on the canvas or add an element here.'));
+  for (const box of doc.boxes) list.appendChild(renderBoxListItem(box));
+  frag.appendChild(list);
 
   el.inspector.replaceChildren(frag);
+  quantizeInspectorCards();
   renderJson();
+}
+
+/**
+ * Let every card show its full copy, then snap its height to half-card steps:
+ * 64, 96, 128px… This keeps the rhythm without truncating unequal text.
+ */
+function quantizeInspectorCards() {
+  requestAnimationFrame(() => {
+    const base = 64;
+    const step = base / 2;
+    for (const card of el.inspector.querySelectorAll('.settings-card, .box-list-item')) {
+      card.style.minHeight = '';
+      const required = card.scrollHeight;
+      card.style.minHeight = `${Math.max(base, Math.ceil(required / step) * step)}px`;
+    }
+  });
+}
+
+function renderBoxListItem(box) {
+  const index = doc.boxes.indexOf(box) + 1;
+  const row = document.createElement('div');
+  row.className = 'box-list-item solid' + (box.id === selectedId ? ' selected' : '');
+  row.dataset.boxId = box.id;
+
+  const swatch = document.createElement('span');
+  swatch.className = 'swatch';
+  swatch.style.background = (PALETTE_BY_KEY[box.color] || PALETTE_BY_KEY.grey).hex;
+
+  const openButton = document.createElement('button');
+  openButton.type = 'button';
+  openButton.className = 'box-list-item__open';
+  const copy = document.createElement('span');
+  copy.className = 'box-list-item__copy';
+  const title = document.createElement('span');
+  title.className = 'box-list-item__title';
+  title.textContent = box.label || `${target().id === 'flux2' ? 'Subject' : 'Element'} ${index}`;
+  const summary = document.createElement('span');
+  summary.className = 'box-list-item__summary';
+  summary.textContent = box.prompt || boxExportPreview(box);
+  copy.append(title, summary);
+  openButton.append(copy);
+  openButton.onclick = () => openBoxDialog(box.id);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'btn btn--quiet btn--danger btn--icon';
+  del.innerHTML = '<img class="button-icon" src="gramofdesign/icons/trash.svg" alt="">';
+  del.setAttribute('aria-label', `Delete ${title.textContent}`);
+  del.onclick = (event) => {
+    event.stopPropagation();
+    deleteBox(box.id);
+  };
+
+  row.append(swatch, openButton, del);
+  return row;
+}
+
+let editorSession = null;
+
+function cloneDocument(value) {
+  return typeof structuredClone === 'function'
+    ? structuredClone(value)
+    : JSON.parse(JSON.stringify(value));
+}
+
+function beginEditorSession(dialog) {
+  editorSession = {
+    dialog,
+    document: cloneDocument(doc),
+    selectedId,
+  };
+}
+
+function applyEditorSession(dialog) {
+  if (editorSession?.dialog !== dialog) return;
+  dialog.close('apply');
+}
+
+function cancelEditorSession(dialog) {
+  if (editorSession?.dialog !== dialog) return;
+  doc = editorSession.document;
+  selectedId = editorSession.selectedId;
+  dialog.close('cancel');
+}
+
+function shouldDismissDialogBackdrop(dialog, event, startedOnBackdrop) {
+  if (!startedOnBackdrop || event.target !== dialog) return false;
+  const rect = dialog.getBoundingClientRect();
+  const inside = event.clientX >= rect.left && event.clientX <= rect.right
+    && event.clientY >= rect.top && event.clientY <= rect.bottom;
+  return !inside;
+}
+
+function wireEditorDialog(dialog, applyButton, cancelButton) {
+  let startedOnBackdrop = false;
+
+  applyButton.addEventListener('click', () => applyEditorSession(dialog));
+  cancelButton.addEventListener('click', () => cancelEditorSession(dialog));
+
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    cancelEditorSession(dialog);
+  });
+
+  dialog.addEventListener('pointerdown', (event) => {
+    startedOnBackdrop = event.target === dialog;
+  });
+  dialog.addEventListener('pointercancel', () => {
+    startedOnBackdrop = false;
+  });
+  dialog.addEventListener('click', (event) => {
+    const dismiss = shouldDismissDialogBackdrop(dialog, event, startedOnBackdrop);
+    startedOnBackdrop = false;
+    if (dismiss) cancelEditorSession(dialog);
+  });
+
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLSelectElement) return;
+    const multiline = event.target instanceof HTMLTextAreaElement;
+    if (multiline && !(event.metaKey || event.ctrlKey)) return;
+    event.preventDefault();
+    if (event.target instanceof HTMLInputElement) {
+      event.target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    applyEditorSession(dialog);
+  });
+}
+
+function openSettingsDialog() {
+  const dialog = $('#dlg-settings');
+  beginEditorSession(dialog);
+  const editor = $('#settings-editor');
+  editor.replaceChildren();
+  editor.appendChild(hint(target().blurb));
+  for (const section of SECTIONS) {
+    const supported = section.fields.filter((field) => fieldSpecFor(field.path));
+    if (!supported.length) continue;
+    const group = document.createElement('section');
+    const heading = document.createElement('h3');
+    heading.textContent = section.title;
+    group.appendChild(heading);
+    for (const field of supported) group.appendChild(renderField(field));
+    editor.appendChild(group);
+  }
+  dialog.showModal();
+}
+
+function openBoxDialog(id) {
+  const box = doc.boxes.find((item) => item.id === id);
+  if (!box) return;
+  const dialog = $('#dlg-box');
+  beginEditorSession(dialog);
+  selectedId = id;
+  setOnlyOpenBox(id);
+  renderCanvas();
+  renderInspector();
+  const shell = renderBoxRow(box);
+  shell.open = true;
+  const body = shell.querySelector('.box-body');
+  $('#box-editor-title').textContent = box.label || `Edit ${target().id === 'flux2' ? 'subject' : 'element'}`;
+  $('#box-editor').replaceChildren(body);
+  dialog.showModal();
 }
 
 function accordion(title, extras, build, open) {
@@ -513,7 +723,7 @@ function renderField(f) {
   key.className = 'field__key';
   key.textContent = spec ? spec.key : 'not in ' + target().name;
   if (spec && spec.confidence === 'assumed') key.title = 'Unverified field name. ' + (spec.note || '');
-  else if (!spec) key.title = `${target().name} has no equivalent — the value is kept in the document and comes back when you switch targets, but is not exported.`;
+  else if (!spec) key.title = `${target().name} does not export this field.`;
   lab.appendChild(key);
   wrap.appendChild(lab);
 
@@ -554,27 +764,45 @@ function renderField(f) {
 /** What this box will actually look like in the current target's JSON. */
 function boxExportPreview(box) {
   const t = target();
+  if (box.hasBbox === false) {
+    return 'No bbox — DrawThings lets the sampler place this element.';
+  }
   if (t.boxes !== 'numeric') return `Exports as “${rectToProse(box)}”`;
 
-  const nums = rectToBboxArray(box.rect, t.bboxFormat, scaleOf(t));
+  const dims = scaleOf(t, doc.aspect);
+  const nums = rectToBboxArray(box.rect, t.bboxFormat, dims);
   const order = { yxyx: 'y, x, y, x', xyxy: 'x1, y1, x2, y2', xywh: 'x, y, w, h' }[t.bboxFormat || 'xywh'];
-  return `Exports as [${nums.join(', ')}]  (${order}${t.grid ? `, 0–${t.grid} grid` : ''})`;
+  const grid = t.dynamicGrid && dims
+    ? `, ${dims.w}×${dims.h} aspect grid`
+    : t.grid ? `, 0–${t.grid} grid` : '';
+  return `Exports as [${nums.join(', ')}]  (${order}${grid})`;
 }
 
 function renderBoxRow(box) {
   const color = (PALETTE_BY_KEY[box.color] || PALETTE_BY_KEY.grey).hex;
+  const boxNumber = doc.boxes.indexOf(box) + 1;
   const d = document.createElement('details');
   d.className = 'box-row solid' + (box.id === selectedId ? ' selected' : '');
+  d.dataset.boxId = box.id;
   d.open = openBoxes.has(box.id);
-  d.addEventListener('toggle', () => { d.open ? openBoxes.add(box.id) : openBoxes.delete(box.id); });
+  d.addEventListener('toggle', () => {
+    if (!d.open) {
+      openBoxes.delete(box.id);
+      return;
+    }
+    setOnlyOpenBox(box.id);
+    for (const other of el.inspector.querySelectorAll('.box-row[open]')) {
+      if (other !== d) other.open = false;
+    }
+  });
 
   const s = document.createElement('summary');
   const sw = document.createElement('span');
   sw.className = 'swatch';
   sw.style.background = color;
   const title = document.createElement('span');
-  title.className = 'box-title' + (box.label ? '' : ' unnamed');
-  title.textContent = box.label || 'unlabelled';
+  title.className = 'box-title';
+  title.textContent = box.label || `Box ${boxNumber}`;
   const sub = document.createElement('span');
   sub.className = 'box-sub';
   sub.textContent = box.prompt || '—';
@@ -595,7 +823,7 @@ function renderBoxRow(box) {
   /* Private label + palette. */
   const priv = document.createElement('div');
   priv.className = 'private-note';
-  priv.textContent = 'Label and colour stay in glassbox — never exported.';
+  priv.textContent = 'Label is optional. Label and colour stay in glassbox — never exported.';
   body.appendChild(priv);
 
   const labelField = document.createElement('div');
@@ -606,8 +834,7 @@ function renderBoxRow(box) {
   li.type = 'text'; li.value = box.label; li.placeholder = 'wolf';
   li.addEventListener('input', () => {
     box.label = li.value;
-    title.textContent = box.label || 'unlabelled';
-    title.className = 'box-title' + (box.label ? '' : ' unnamed');
+    title.textContent = box.label || `Box ${boxNumber}`;
     renderCanvas();
     persistDraft();
   });
@@ -641,7 +868,9 @@ function renderBoxRow(box) {
   pl.textContent = 'Description';
   const pk = document.createElement('span');
   pk.className = 'field__key';
-  pk.textContent = target().boxes === 'numeric' ? 'regions[].prompt' : 'subjects[].description';
+  pk.textContent = target().boxes === 'numeric'
+    ? 'compositional_deconstruction.elements[].desc'
+    : 'subjects[].description';
   pl.appendChild(pk);
   const pt = document.createElement('textarea');
   pt.rows = 2; pt.value = box.prompt;
@@ -655,8 +884,66 @@ function renderBoxRow(box) {
   pf.append(pl, pt);
   body.appendChild(pf);
 
-  /* Element type. Ideogram and Krea both distinguish "obj" from "text", where a
-     text element additionally carries the literal copy to render. */
+  const placementField = document.createElement('label');
+  placementField.className = 'placement-toggle';
+  const placementInput = document.createElement('input');
+  placementInput.type = 'checkbox';
+  placementInput.checked = box.hasBbox !== false;
+  const placementCopy = document.createElement('span');
+  placementCopy.textContent = 'Use placement box';
+  placementField.append(placementInput, placementCopy);
+  body.appendChild(placementField);
+
+  /* Canonical editor geometry is always percentages of the frame. Target
+     coordinate order is a read-only export concern. */
+  const geometry = document.createElement('div');
+  geometry.className = 'geometry-grid';
+  const geometryInputs = {};
+  const geometryFields = [
+    ['x', 'Left'], ['y', 'Top'], ['w', 'Width'], ['h', 'Height'],
+  ];
+  const refreshGeometry = () => {
+    for (const [key] of geometryFields) geometryInputs[key].value = Math.round(box.rect[key] * 1000) / 10;
+    updateBoxNode(box);
+    renderJson();
+    preview.textContent = boxExportPreview(box);
+    persistDraft();
+  };
+  for (const [key, label] of geometryFields) {
+    const field = document.createElement('div');
+    field.className = 'field';
+    const lab = document.createElement('label');
+    lab.textContent = `${label} %`;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.max = '100';
+    input.step = '0.1';
+    geometryInputs[key] = input;
+    input.addEventListener('change', () => {
+      const value = clamp01((Number(input.value) || 0) / 100);
+      if (key === 'x') box.rect.x = Math.min(value, 1 - box.rect.w);
+      if (key === 'y') box.rect.y = Math.min(value, 1 - box.rect.h);
+      if (key === 'w') box.rect.w = Math.max(0.01, Math.min(value, 1 - box.rect.x));
+      if (key === 'h') box.rect.h = Math.max(0.01, Math.min(value, 1 - box.rect.y));
+      refreshGeometry();
+    });
+    field.append(lab, input);
+    geometry.appendChild(field);
+  }
+  body.appendChild(geometry);
+  geometry.hidden = !placementInput.checked;
+  placementInput.addEventListener('change', () => {
+    box.hasBbox = placementInput.checked;
+    geometry.hidden = !placementInput.checked;
+    updateBoxNode(box);
+    renderJson();
+    preview.textContent = boxExportPreview(box);
+    persistDraft();
+  });
+
+  /* DrawThings Ideogram distinguishes objects from rendered text. */
+  const supportsElementType = true;
   const kindField = document.createElement('div');
   kindField.className = 'field';
   const kl = document.createElement('label');
@@ -672,6 +959,7 @@ function renderBoxRow(box) {
     ks.appendChild(opt);
   }
   ks.value = box.kind === 'text' ? 'text' : 'obj';
+  kindField.hidden = !supportsElementType;
   kindField.append(kl, ks);
   body.appendChild(kindField);
 
@@ -696,37 +984,33 @@ function renderBoxRow(box) {
     renderJson(); persistDraft();
   });
 
-  const row = document.createElement('div');
-  row.className = 'row';
-
-  const wf = document.createElement('div');
-  wf.className = 'field';
-  const wl = document.createElement('label'); wl.textContent = 'Weight';
-  const wi = document.createElement('input');
-  wi.type = 'number'; wi.step = '0.1'; wi.min = '0'; wi.max = '3'; wi.value = box.weight;
-  wi.addEventListener('input', () => { box.weight = Number(wi.value) || 1; renderJson(); persistDraft(); });
-  wf.append(wl, wi);
-
-  const df = document.createElement('div');
-  df.className = 'field';
-  const dl = document.createElement('label'); dl.textContent = 'Depth';
-  const ds = document.createElement('select');
-  for (const o of ['', 'foreground', 'midground', 'background']) {
-    const opt = document.createElement('option');
-    opt.value = o; opt.textContent = o || '—';
-    ds.appendChild(opt);
+  if (target().id === 'flux2') {
+    const actionField = document.createElement('div');
+    actionField.className = 'field';
+    const actionLabel = document.createElement('label');
+    actionLabel.textContent = 'Action';
+    const actionKey = document.createElement('span');
+    actionKey.className = 'field__key';
+    actionKey.textContent = 'subjects[].action';
+    actionLabel.appendChild(actionKey);
+    const actionInput = document.createElement('input');
+    actionInput.type = 'text';
+    actionInput.value = box.action || '';
+    actionInput.placeholder = 'standing still, looking toward camera';
+    actionInput.addEventListener('input', () => {
+      box.action = actionInput.value;
+      renderJson();
+      persistDraft();
+    });
+    actionField.append(actionLabel, actionInput);
+    body.appendChild(actionField);
   }
-  ds.value = box.depth;
-  ds.addEventListener('change', () => { box.depth = ds.value; renderJson(); persistDraft(); });
-  df.append(dl, ds);
-
-  row.append(wf, df);
-  body.appendChild(row);
 
   /* Per-element colour palette — Ideogram documents up to five per element.
      Distinct from the swatch above, which is yours and never exported. */
   const palField = document.createElement('div');
   palField.className = 'field';
+  palField.hidden = target().id !== 'ideogram';
   const pll = document.createElement('label');
   pll.textContent = 'Element colours';
   const plk = document.createElement('span');
@@ -742,13 +1026,15 @@ function renderBoxRow(box) {
 
   /* What this box becomes in the current target. */
   const preview = document.createElement('div');
-  preview.className = 'hint';
+  preview.className = 'hint coord-preview';
   preview.textContent = boxExportPreview(box);
   body.appendChild(preview);
+  refreshGeometry();
 
   const del = document.createElement('button');
+  del.type = 'button';
   del.className = 'btn btn--danger';
-  del.textContent = 'Delete box';
+  del.textContent = `Delete ${target().id === 'flux2' ? 'subject' : 'element'}`;
   del.onclick = () => deleteBox(box.id);
   body.appendChild(del);
 
@@ -762,21 +1048,26 @@ function currentJson() {
   return target().exportDoc(doc);
 }
 
+function currentJsonText() {
+  return JSON.stringify(currentJson());
+}
+
 function renderJson() {
   const out = $('#json-out');
   if (!out) return;
+  $('#json-target').textContent = target().name;
   try {
-    out.textContent = JSON.stringify(currentJson(), null, 2);
+    out.textContent = currentJsonText();
   } catch (e) {
     out.textContent = '// export failed: ' + e.message;
   }
 }
 
 async function copyJson() {
-  const text = JSON.stringify(currentJson(), null, 2);
+  const text = currentJsonText();
   try {
     await navigator.clipboard.writeText(text);
-    toast(`Copied ${target().name} JSON — labels and colours stripped.`);
+    toast('JSON copied.');
   } catch {
     // Clipboard API needs a secure context; fall back to a selectable prompt.
     const ta = document.createElement('textarea');
@@ -789,6 +1080,29 @@ async function copyJson() {
   }
 }
 
+function downloadJson() {
+  const blob = new Blob([currentJsonText()], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  const base = (docName || target().id || 'prompt').replace(/[^\w\-. ]+/g, '_');
+  link.download = `${base}.json`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function setWorkspaceView(view) {
+  const json = view === 'json';
+  $('.workspace').hidden = json;
+  $('#json-view').hidden = !json;
+  for (const button of document.querySelectorAll('[data-view]')) {
+    const active = button.dataset.view === view;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
+  if (json) renderJson();
+  else requestAnimationFrame(fitCanvas);
+}
+
 /* --- box actions ---------------------------------------------------------- */
 
 function addBox() {
@@ -797,12 +1111,14 @@ function addBox() {
   const box = {
     id: nextId(),
     rect: { x: 0.3 + off, y: 0.3 + off, w: 0.28, h: 0.28 },
-    prompt: '', weight: 1, depth: '', kind: 'obj', text: '', palette: '', label: '', color: 'grey',
+    hasBbox: true,
+    prompt: '', action: '', weight: 1, depth: '', kind: 'obj', text: '', palette: '', label: '', color: 'grey',
   };
   doc.boxes.push(box);
   selectedId = box.id;
-  openBoxes.add(box.id);
+  setOnlyOpenBox(box.id);
   renderCanvas(); renderInspector(); persistDraft();
+  openBoxDialog(box.id);
 }
 
 function duplicateBox() {
@@ -814,7 +1130,7 @@ function duplicateBox() {
   };
   doc.boxes.push(copy);
   selectedId = copy.id;
-  openBoxes.add(copy.id);
+  setOnlyOpenBox(copy.id);
   renderCanvas(); renderInspector(); persistDraft();
 }
 
@@ -822,84 +1138,72 @@ function deleteBox(id) {
   doc.boxes = doc.boxes.filter((b) => b.id !== id);
   openBoxes.delete(id);
   if (selectedId === id) selectedId = null;
+  if ($('#dlg-box').open) {
+    editorSession = null;
+    $('#dlg-box').close('delete');
+  }
   renderCanvas(); renderInspector(); persistDraft();
 }
 
 /* --- import --------------------------------------------------------------- */
 
-/** Merge a target's parsed result into the document, keeping private labels. */
-function applyImport(parsed, raw) {
-  const oldBoxes = doc.boxes;
+/** Replace the current strict target document with a parsed document. */
+function applyImport(parsed) {
   const next = blankDoc();
+  next.pixelBasis = parsed.pixelBasis
+    || (target().imageSize && hasPixelBasis() ? { ...doc.pixelBasis } : null);
 
-  for (const k of ['aspect', 'scene', 'background', 'mood', 'lighting', 'negative']) {
+  for (const k of ['aspect', 'scene', 'background', 'mood', 'lighting', 'composition']) {
     if (parsed[k] != null) next[k] = parsed[k];
   }
   next.style = { ...next.style, ...(parsed.style || {}) };
   next.camera = { ...next.camera, ...(parsed.camera || {}) };
-  next.text = { ...next.text, ...(parsed.text || {}) };
   next.seed = parsed.seed ?? null;
-  next.pixelBasis = parsed.pixelBasis || null;
   if (!next.aspect) next.aspect = doc.aspect;
-
-  /* Geometry matching: a pasted box that lands on roughly the same spot as one
-     you already had inherits its label and colour. Each old box is claimed at
-     most once, best match first. */
-  const claimed = new Set();
   next.boxes = (parsed.boxes || []).map((b) => {
-    const box = {
+    return {
       id: nextId(),
-      rect: b.rect, prompt: b.prompt || '', weight: b.weight ?? 1, depth: b.depth || '',
+      rect: b.rect || { x: 0.3, y: 0.3, w: 0.28, h: 0.28 },
+      hasBbox: b.hasBbox !== false,
+      prompt: b.prompt || '',
+      action: b.action || '',
+      weight: 1,
+      depth: '',
       kind: b.kind || 'obj',
       text: b.text || '',
       palette: b.palette || '',
-      label: '', color: 'grey',      // never auto-filled on paste, by design
+      label: '',
+      color: 'grey',
     };
-    let best = null, bestScore = 0.35;
-    for (const old of oldBoxes) {
-      if (claimed.has(old.id)) continue;
-      const score = iou(old.rect, box.rect);
-      if (score > bestScore) { best = old; bestScore = score; }
-    }
-    if (best) { claimed.add(best.id); box.label = best.label; box.color = best.color; }
-    return box;
   });
 
-  /* Keys no target field claimed — kept and surfaced rather than silently lost. */
-  const consumed = new Set(parsed.consumed || []);
-  next.extras = {};
-  for (const [k, v] of Object.entries(raw)) if (!consumed.has(k)) next.extras[k] = v;
-
   doc = next;
+  docName = '';
+  currentSlotName = '';
   selectedId = null;
   openBoxes.clear();
-  ensureAspectOption(doc.aspect);
-  el.aspect.value = doc.aspect;
+  setAspectValue(doc.aspect);
+  el.docName.textContent = '';
 
   fitCanvas(); renderCanvas(); renderInspector(); persistDraft();
-
-  const kept = next.boxes.filter((b) => b.label).length;
-  const msgs = [`Read ${next.boxes.length} box${next.boxes.length === 1 ? '' : 'es'} as ${target().name}.`];
-  if (kept) msgs.push(`${kept} label${kept === 1 ? '' : 's'} carried over.`);
-  if (Object.keys(next.extras).length) msgs.push(`${Object.keys(next.extras).length} unrecognised key(s) kept.`);
-  (parsed.warnings || []).forEach((w) => msgs.push(w));
-  toast(msgs.join(' '));
+  toast(`Imported ${target().name} JSON.`);
 }
 
 /* --- persistence ---------------------------------------------------------- */
 
-function serialize() {
+function serialize(name = docName) {
   return {
     format: 'glassbox',
     version: 1,
-    name: docName,
+    name,
+    slot: currentSlotName,
     target: targetId,
     savedAt: new Date().toISOString(),
     doc,                      // includes labels and colours — the point of saving
   };
 }
 
-function deserialize(payload) {
+function deserialize(payload, source = 'draft') {
   if (!payload || payload.format !== 'glassbox' || !payload.doc) {
     throw new Error('Not a glassbox file.');
   }
@@ -907,27 +1211,27 @@ function deserialize(payload) {
   doc = { ...base, ...payload.doc };
   doc.style = { ...base.style, ...(payload.doc.style || {}) };
   doc.camera = { ...base.camera, ...(payload.doc.camera || {}) };
-  doc.text = { ...base.text, ...(payload.doc.text || {}) };
-  doc.extras = payload.doc.extras || {};
-  doc.pixelBasis = payload.doc.pixelBasis || null;
+  doc.krea = { ...base.krea, ...(payload.doc.krea || {}) };
   doc.boxes = (payload.doc.boxes || []).map((b) => ({
     id: nextId(),
     rect: b.rect || { x: 0.3, y: 0.3, w: 0.3, h: 0.3 },
-    prompt: b.prompt || '', weight: b.weight ?? 1, depth: b.depth || '',
+    hasBbox: b.hasBbox !== false,
+    prompt: b.prompt || '', action: b.action || '', weight: b.weight ?? 1, depth: b.depth || '',
     kind: b.kind || 'obj',
     text: b.text || '',
     palette: b.palette || '',
     label: b.label || '', color: PALETTE_BY_KEY[b.color] ? b.color : 'grey',
   }));
   docName = payload.name || '';
-  ensureAspectOption(doc.aspect);
+  currentSlotName = source === 'slot' ? docName : (source === 'draft' ? payload.slot || '' : '');
   if (payload.target && TARGETS.some((t) => t.id === payload.target)) {
     targetId = payload.target;
     el.target.value = targetId;
   }
   selectedId = null;
   openBoxes.clear();
-  el.aspect.value = doc.aspect;
+  setAspectValue(doc.aspect);
+  renderImageSizeControls();
   el.docName.textContent = docName;
   fitCanvas(); renderCanvas(); renderInspector();
 }
@@ -964,7 +1268,6 @@ $('#btn-paste').onclick = async () => {
   $('#paste-text').value = '';
   $('#paste-summary').hidden = true;
   pasteAnalysis = null;
-  pasteFormatOverride = null;
   dlgPaste.showModal();
   // Offer whatever is already on the clipboard, if the browser allows reading it.
   try {
@@ -974,24 +1277,75 @@ $('#btn-paste').onclick = async () => {
   $('#paste-text').focus();
 };
 
-const COORD_LABELS = {
-  xywh: '[x, y, w, h]',
-  xyxy: '[x1, y1, x2, y2]',
-  yxyx: '[y, x, y, x]',
-};
-
-/* The last successful analysis, so the format toggle can re-run without
-   re-parsing and the OK button can apply exactly what was previewed. */
 let pasteAnalysis = null;
-let pasteFormatOverride = null;
 
-/**
- * Parse and interpret, without touching the document.
- *
- * Tries the selected target first — it knows its own shape best — and falls
- * back to a structural scan of the whole tree when that finds nothing. The
- * silent empty-canvas outcome is the one thing this must never produce.
- */
+function validateStrictJson(t, json, parsed) {
+  const unknown = Object.keys(json).filter((key) => !(parsed.consumed || []).includes(key));
+  if (unknown.length) return `Not valid ${t.name}: unsupported top-level key${unknown.length > 1 ? 's' : ''} ${unknown.join(', ')}.`;
+  const required = ['aspect_ratio', 'high_level_description', 'compositional_deconstruction'];
+  const missing = required.filter((key) => !Object.hasOwn(json, key));
+  if (missing.length) return `${t.name} requires ${missing.join(', ')}.`;
+  if (!ratioOf(json.aspect_ratio)) return 'aspect_ratio must be a positive ratio such as 4:3.';
+  if (Object.keys(json).join('|') !== required.join('|')) {
+    return 'Top-level keys must be ordered aspect_ratio, high_level_description, compositional_deconstruction.';
+  }
+  if (typeof json.high_level_description !== 'string') {
+    return 'high_level_description must be a string.';
+  }
+
+  const composition = json.compositional_deconstruction;
+  if (!composition || typeof composition !== 'object' || !Array.isArray(composition.elements)) {
+    return `${t.name} needs compositional_deconstruction with an elements array.`;
+  }
+  const allowedComposition = ['background', 'elements'];
+  const badComposition = Object.keys(composition).filter((key) => !allowedComposition.includes(key));
+  if (badComposition.length) return `Unsupported compositional_deconstruction key: ${badComposition.join(', ')}.`;
+  if (!Object.hasOwn(composition, 'background')) return 'compositional_deconstruction.background is required.';
+  if (Object.keys(composition).join('|') !== allowedComposition.join('|')) {
+    return 'compositional_deconstruction keys must be ordered background, elements.';
+  }
+  if (typeof composition.background !== 'string') return 'background must be a string.';
+
+  for (const element of composition.elements) {
+    if (!element || typeof element !== 'object' || Array.isArray(element)) {
+      return 'Every element must be an object.';
+    }
+    const type = element.type;
+    if (!['obj', 'text'].includes(type)) return 'Every element type must be obj or text.';
+    const allowed = type === 'text'
+      ? ['type', 'bbox', 'text', 'desc']
+      : ['type', 'bbox', 'desc'];
+    const bad = Object.keys(element || {}).filter((key) => !allowed.includes(key));
+    if (bad.length) return `Unsupported element key: ${bad.join(', ')}.`;
+    if ('bbox' in element) {
+      if (!Array.isArray(element.bbox) || element.bbox.length !== 4
+        || !element.bbox.every((value) => Number.isInteger(value) && value >= 0 && value <= 1000)) {
+        return 'bbox must contain four integers from 0 to 1000.';
+      }
+      const [y1, x1, y2, x2] = element.bbox;
+      if (y1 > y2 || x1 > x2) return 'bbox must follow [y1, x1, y2, x2] with increasing corners.';
+    }
+    if (typeof element.desc !== 'string') return 'Every element needs a desc string.';
+    if (type === 'text' && typeof element.text !== 'string') {
+      return 'Every text element needs a text string.';
+    }
+    const expected = type === 'text'
+      ? ['type', 'bbox', 'text', 'desc']
+      : ['type', 'bbox', 'desc'];
+    const keys = Object.keys(element);
+    if (keys.join('|') !== expected.filter((key) => key in element).join('|')) {
+      return 'Element keys are out of DrawThings’ required order.';
+    }
+  }
+  return '';
+}
+
+function validHexPalette(value, max) {
+  return Array.isArray(value)
+    && value.length <= max
+    && value.every((color) => typeof color === 'string' && /^#[0-9A-F]{6}$/.test(color));
+}
+
 function analysePaste() {
   const raw = $('#paste-text').value.trim();
   const err = $('#paste-error');
@@ -1002,139 +1356,133 @@ function analysePaste() {
   if (!raw) return;
 
   let json;
+  let repairedClosingBrace = false;
   try {
     json = JSON.parse(raw);
   } catch (e) {
-    err.textContent = 'Invalid JSON — ' + e.message + '. Nothing will be changed.';
-    return;
+    const canRepairObserved = target().observedOutput
+      && (raw.match(/{/g) || []).length === (raw.match(/}/g) || []).length + 1
+      && (raw.match(/\[/g) || []).length === (raw.match(/\]/g) || []).length;
+    if (canRepairObserved) {
+      try {
+        json = JSON.parse(raw + '}');
+        repairedClosingBrace = true;
+      } catch { /* report the original parse failure below */ }
+    }
+    if (!json) {
+      err.textContent = 'Invalid JSON — ' + e.message + '. Nothing will be changed.';
+      return;
+    }
   }
   if (typeof json !== 'object' || Array.isArray(json) || json === null) {
     err.textContent = 'Expected a JSON object at the top level. Nothing will be changed.';
     return;
   }
 
-  let parsed = null, via = target().name;
+  let parsed = null;
   try {
     parsed = target().importDoc(json);
   } catch { parsed = null; }
 
-  if (!parsed || (!parsed.boxes.length && !parsed.scene)) {
-    const scavenged = scavengeDoc(json, pasteFormatOverride);
-    if (scavenged.boxes.length || scavenged.scene) {
-      parsed = scavenged;
-      via = 'structural scan';
-    }
-  } else if (pasteFormatOverride && parsed.boxes.length) {
-    // The user flipped the reading — redo it through the scanner, which is the
-    // only path that honours an override.
-    const scavenged = scavengeDoc(json, pasteFormatOverride);
-    if (scavenged.boxes.length) { parsed = scavenged; via = 'structural scan'; }
-  }
-
-  if (!parsed || (!parsed.boxes.length && !parsed.scene)) {
-    err.textContent = 'Nothing recognisable in here — no scene text and nothing box-shaped. '
-      + 'Nothing will be changed.';
+  if (!parsed) {
+    err.textContent = `This is not valid ${target().name} JSON. Nothing will be changed.`;
     return;
   }
 
-  /* A descriptor that read the document itself reports nothing about how it
-     read the coordinates. Fill that in from what the descriptor declares, so
-     the coordinate reading is always visible — and always reversible. */
-  if (!parsed.found && parsed.boxes.length && target().boxes === 'numeric') {
-    parsed.found = {
-      path: null,
-      count: parsed.boxes.length,
-      format: target().bboxFormat || 'xywh',
-      basis: parsed.pixelBasis || null,
-      detected: { confident: true, reason: `declared by the ${target().name} descriptor` },
-    };
+  const validationError = validateStrictJson(target(), json, parsed);
+  if (validationError) {
+    err.textContent = validationError + ' Nothing will be changed.';
+    return;
   }
 
-  pasteAnalysis = { parsed, json, via };
+  const warnings = [];
+  if (repairedClosingBrace) {
+    warnings.push('The source was missing one final }, matching the observed Expand to JSON defect; Glassbox restored it.');
+  }
+  if (/"desc"\s*:[^{}]*"desc"\s*:/.test(raw)) {
+    warnings.push('One element contains desc twice. JSON keeps only the second value, so the first description cannot survive structured editing.');
+  }
+  pasteAnalysis = { parsed, json, warnings };
   renderPasteSummary();
 }
 
 function renderPasteSummary() {
   const box = $('#paste-summary');
-  const { parsed, json, via } = pasteAnalysis;
-  const f = parsed.found;
+  const { parsed, warnings = [] } = pasteAnalysis;
   box.replaceChildren();
   box.hidden = false;
 
   const lines = [];
-  lines.push(`Read via ${via}. ${parsed.boxes.length} box${parsed.boxes.length === 1 ? '' : 'es'}`
-    + (f && f.path && f.path !== 'root' ? ` found under ${f.path}` : '')
+  lines.push(`Valid ${target().name}: ${parsed.boxes.length} ${target().id === 'flux2' ? 'subject' : 'element'}${parsed.boxes.length === 1 ? '' : 's'}`
     + (parsed.scene ? ', plus scene text' : '') + '.');
   if (parsed.aspect) lines.push(`Aspect ratio ${parsed.aspect}.`);
-  for (const w of parsed.warnings || []) lines.push(w);
+  if (target().boxes === 'numeric') lines.push(coordsDescription(target()));
   box.appendChild(hint(lines.join(' ')));
-
-  /* Coordinate reading — shown whenever it was inferred, with a way to flip it. */
-  if (f && f.detected && parsed.boxes.length) {
-    const row = document.createElement('div');
-    row.className = 'hint' + (f.detected.confident ? '' : ' warn');
-    row.textContent = `Coordinates read as ${COORD_LABELS[f.format]} — ${f.detected.reason}.`
-      + (f.basis && f.basis.grid ? ' Values are on a 0–1000 grid.' : '');
-    box.appendChild(row);
-
-    /* Three readings, not two. Ideogram is row-first and Krea is x-first on the
-       same 0–1000 grid, so a document can look right and be transposed — the
-       only reliable check is seeing it on the canvas. */
-    const pick = document.createElement('div');
-    pick.className = 'row';
-    for (const fmt of ['xywh', 'xyxy', 'yxyx']) {
-      const b = document.createElement('button');
-      b.className = 'btn' + (fmt === f.format ? ' primary' : '');
-      b.type = 'button';
-      b.textContent = COORD_LABELS[fmt];
-      b.onclick = () => { pasteFormatOverride = fmt; analysePaste(); };
-      pick.appendChild(b);
-    }
-    box.appendChild(pick);
-  }
-
-  /* Keys nothing claimed. */
-  const consumed = new Set(parsed.consumed || []);
-  const orphans = Object.keys(json).filter((k) => !consumed.has(k));
-  if (orphans.length) {
-    box.appendChild(hint(`Kept as-is and passed through to exports: ${orphans.join(', ')}.`));
-  }
+  for (const warning of warnings) box.appendChild(hint(warning, true));
 }
 
-$('#paste-text').addEventListener('input', () => { pasteFormatOverride = null; analysePaste(); });
+$('#paste-text').addEventListener('input', analysePaste);
 
 $('#paste-ok').onclick = () => {
   if (!pasteAnalysis) { analysePaste(); if (!pasteAnalysis) return; }
-  applyImport(pasteAnalysis.parsed, pasteAnalysis.json);
+  applyImport(pasteAnalysis.parsed);
   dlgPaste.close();
 };
 
-$('#btn-save').onclick = () => {
-  $('#save-name').value = docName || '';
+function openSaveAsDialog() {
+  $('#save-name').value = docName ? `${docName} copy` : '';
+  $('#save-current').hidden = !currentSlotName;
+  $('#save-current').textContent = currentSlotName
+    ? `The current work “${currentSlotName}” will stay untouched.`
+    : '';
   dlgSave.showModal();
   $('#save-name').focus();
-};
+}
+
+function saveCurrent() {
+  if (!currentSlotName) {
+    openSaveAsDialog();
+    return;
+  }
+  const slots = readSlots();
+  const index = slots.findIndex((slot) => slot.name === currentSlotName);
+  const payload = serialize(currentSlotName);
+  payload.slot = currentSlotName;
+  if (index >= 0) slots[index] = payload;
+  else slots.unshift(payload);
+  if (writeSlots(slots)) {
+    docName = currentSlotName;
+    el.docName.textContent = docName;
+    toast(`Updated “${docName}”.`);
+  }
+}
+
+$('#btn-save').onclick = saveCurrent;
+$('#btn-save-as').onclick = openSaveAsDialog;
 
 $('#save-ok').onclick = () => {
   const name = $('#save-name').value.trim();
   if (!name) { toast('Give it a name first.', true); return; }
-  docName = name;
   const slots = readSlots();
-  const payload = serialize();
-  const i = slots.findIndex((s) => s.name === name);
-  if (i >= 0) slots[i] = payload; else slots.unshift(payload);
+  if (slots.some((slot) => slot.name === name)) {
+    toast(`“${name}” already exists. Choose another name or use Save to update it.`, true);
+    return;
+  }
+  const payload = serialize(name);
+  payload.slot = name;
+  slots.unshift(payload);
   if (writeSlots(slots)) {
+    docName = name;
+    currentSlotName = name;
     el.docName.textContent = docName;
-    toast(`Saved “${name}” in this browser.`);
+    toast(`Saved a new work “${name}”.`);
     dlgSave.close();
   }
 };
 
 $('#save-file').onclick = () => {
   const name = $('#save-name').value.trim() || 'untitled';
-  docName = name;
-  el.docName.textContent = docName;
-  const blob = new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(serialize(name), null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name.replace(/[^\w\-. ]+/g, '_') + '.glassbox.json';
@@ -1145,7 +1493,8 @@ $('#save-file').onclick = () => {
 
 $('#save-copy').onclick = async () => {
   try {
-    await navigator.clipboard.writeText(JSON.stringify(serialize(), null, 2));
+    const name = $('#save-name').value.trim() || docName || 'untitled';
+    await navigator.clipboard.writeText(JSON.stringify(serialize(name), null, 2));
     toast('Copied the saved-work JSON, including labels and colours.');
   } catch {
     toast('Could not copy this work. Download the file instead.', true);
@@ -1183,11 +1532,12 @@ function renderSlots() {
     del.onclick = (e) => {
       e.stopPropagation();
       writeSlots(readSlots().filter((x) => x.name !== s.name));
+      if (currentSlotName === s.name) currentSlotName = '';
       renderSlots();
     };
     row.append(n, m, del);
     row.onclick = () => {
-      try { deserialize(s); toast(`Opened “${s.name}”.`); dlgOpen.close(); }
+      try { deserialize(s, 'slot'); toast(`Opened “${s.name}”.`); dlgOpen.close(); }
       catch (e) { toast(e.message, true); }
     };
     list.appendChild(row);
@@ -1202,7 +1552,7 @@ $('#open-file').onchange = (e) => {
   const r = new FileReader();
   r.onload = () => {
     try {
-      deserialize(JSON.parse(r.result));
+      deserialize(JSON.parse(r.result), 'file');
       toast(`Opened “${docName || file.name}”.`);
       dlgOpen.close();
     } catch (err) {
@@ -1232,10 +1582,11 @@ $('#btn-clear').onclick = () => {
   document.querySelector('[data-theme-switch] [data-theme="auto"]')?.click();
   doc = blankDoc();
   docName = '';
+  currentSlotName = '';
   selectedId = null;
   openBoxes.clear();
   el.docName.textContent = '';
-  el.aspect.value = doc.aspect;
+  setAspectValue(doc.aspect);
   fitCanvas(); renderCanvas(); renderInspector();
   dlgData.close();
   toast('Everything erased.');
@@ -1266,22 +1617,23 @@ function setMobileTab(name) {
 }
 
 function openInspectorSection(name) {
+  setWorkspaceView('editor');
   el.inspector.dataset.open = '';
   setMobileTab(name);
-  const section = el.inspector.querySelector(`[data-section="${name}"]`);
-  if (!section) return;
-  section.open = true;
-  requestAnimationFrame(() => {
-    el.inspector.scrollTo({ top: Math.max(0, section.offsetTop - 8), behavior: 'smooth' });
-  });
+  el.inspector.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 for (const tab of mobileTabs) {
   tab.addEventListener('click', () => {
     const panel = tab.dataset.mobilePanel;
     if (panel === 'canvas') {
+      setWorkspaceView('editor');
       delete el.inspector.dataset.open;
       setMobileTab('canvas');
+    } else if (panel === 'json') {
+      delete el.inspector.dataset.open;
+      setWorkspaceView('json');
+      setMobileTab('json');
     } else if (panel === 'data') {
       delete el.inspector.dataset.open;
       setMobileTab('data');
@@ -1299,6 +1651,23 @@ el.inspector.addEventListener('click', () => {
 });
 
 $('#dlg-data').addEventListener('close', () => setMobileTab('canvas'));
+$('#dlg-settings').addEventListener('close', () => {
+  editorSession = null;
+  renderCanvas(); renderInspector(); renderJson(); persistDraft();
+});
+$('#dlg-box').addEventListener('close', () => {
+  editorSession = null;
+  renderCanvas(); renderInspector(); renderJson(); persistDraft();
+});
+$('#dlg-box form').addEventListener('submit', (event) => event.preventDefault());
+$('#dlg-settings form').addEventListener('submit', (event) => event.preventDefault());
+wireEditorDialog($('#dlg-settings'), $('#settings-editor-done'), $('#settings-editor-cancel'));
+wireEditorDialog($('#dlg-box'), $('#box-editor-done'), $('#box-editor-cancel'));
+$('#btn-edit-selected').onclick = () => selectedId && openBoxDialog(selectedId);
+
+for (const button of document.querySelectorAll('[data-view]')) {
+  button.addEventListener('click', () => setWorkspaceView(button.dataset.view));
+}
 
 /* --- wiring --------------------------------------------------------------- */
 
@@ -1311,30 +1680,133 @@ el.target.value = targetId;
 el.target.onchange = () => {
   targetId = el.target.value;
   localStorage.setItem(K_TARGET, targetId);
+  doc = blankDoc();
+  docName = '';
+  currentSlotName = '';
+  selectedId = null;
+  openBoxes.clear();
+  if (backdrop.url) URL.revokeObjectURL(backdrop.url);
+  backdrop = { url: '', name: '', opacity: backdrop.opacity };
+  applyBackdrop();
+  setAspectValue(doc.aspect);
+  el.docName.textContent = '';
+  setWorkspaceView('editor');
+  fitCanvas();
+  renderCanvas();
   renderInspector();
   showCoordHint();
-  toast(`Now exporting as ${target().name}. Nothing was lost — fields this target drops are struck through.`);
+  persistDraft();
 };
 
 function showCoordHint() {
-  el.hintCoords.textContent = coordsDescription(target());
+  el.hintCoords.textContent = 'row-first · [y₁, x₁, y₂, x₂] · 0–1000';
 }
 
 for (const a of ASPECTS) {
   const o = document.createElement('option');
-  o.value = a; o.textContent = a;
+  o.value = a;
+  o.textContent = a;
   el.aspect.appendChild(o);
 }
-el.aspect.value = doc.aspect;
+const customAspectOption = document.createElement('option');
+customAspectOption.value = '__custom__';
+customAspectOption.textContent = 'Custom…';
+el.aspect.appendChild(customAspectOption);
+setAspectValue(doc.aspect);
+
+function commitCustomAspect() {
+  const value = el.aspectCustom.value.trim();
+  if (!ratioOf(value)) {
+    $('#aspect-error').hidden = false;
+    el.aspectCustom.setAttribute('aria-invalid', 'true');
+    return false;
+  }
+  $('#aspect-error').hidden = true;
+  el.aspectCustom.removeAttribute('aria-invalid');
+  setAspectValue(value);
+  fitCanvas(); renderCanvas(); renderInspector(); showCoordHint(); persistDraft();
+  return true;
+}
+
 el.aspect.onchange = () => {
-  doc.aspect = el.aspect.value;
-  fitCanvas(); renderCanvas(); renderJson(); persistDraft();
+  if (el.aspect.value === '__custom__') {
+    el.aspectCustom.hidden = false;
+    el.aspectCustom.value = ASPECTS.includes(doc.aspect) ? '' : doc.aspect;
+    el.aspectCustom.focus();
+    el.aspectCustom.select();
+    return;
+  }
+  $('#aspect-error').hidden = true;
+  setAspectValue(el.aspect.value);
+  fitCanvas(); renderCanvas(); renderInspector(); showCoordHint(); persistDraft();
 };
+el.aspectCustom.onchange = commitCustomAspect;
+el.aspectCustom.onkeydown = (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    commitCustomAspect();
+  }
+  if (event.key === 'Escape') setAspectValue(doc.aspect);
+};
+
+function commitImageSize() {
+  const w = Math.round(Number(el.imageWidth.value));
+  const h = Math.round(Number(el.imageHeight.value));
+  doc.pixelBasis = w > 0 && h > 0 ? { w, h } : null;
+  if (doc.pixelBasis) setAspectValue(reducedRatio(w, h));
+  renderImageSizeStatus();
+  fitCanvas(); renderCanvas(); renderInspector(); showCoordHint(); persistDraft();
+}
+
+el.imageWidth.addEventListener('change', commitImageSize);
+el.imageHeight.addEventListener('change', commitImageSize);
+el.imageWidth.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    commitImageSize();
+    el.imageHeight.focus();
+  }
+});
+el.imageHeight.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    commitImageSize();
+  }
+});
 
 $('#btn-add').onclick = addBox;
 $('#btn-dup').onclick = duplicateBox;
 $('#btn-del').onclick = () => selectedId && deleteBox(selectedId);
+$('#btn-clear-canvas').onclick = () => {
+  const empty = blankDoc();
+  empty.aspect = doc.aspect;
+  empty.pixelBasis = hasPixelBasis() ? { ...doc.pixelBasis } : null;
+  const hasContent = JSON.stringify(doc) !== JSON.stringify(empty) || backdrop.url;
+  if (hasContent && !confirm('Clear the current prompt, every element, and the backdrop? Saved works will not be deleted.')) {
+    return;
+  }
+  const aspect = doc.aspect;
+  const pixelBasis = hasPixelBasis() ? { ...doc.pixelBasis } : null;
+  doc = blankDoc();
+  doc.aspect = aspect;
+  doc.pixelBasis = pixelBasis;
+  selectedId = null;
+  openBoxes.clear();
+  if (backdrop.url) URL.revokeObjectURL(backdrop.url);
+  backdrop = { url: '', name: '', opacity: backdrop.opacity };
+  applyBackdrop();
+  setWorkspaceView('editor');
+  setAspectValue(doc.aspect);
+  fitCanvas();
+  renderCanvas();
+  renderInspector();
+  showCoordHint();
+  persistDraft();
+  toast('Canvas cleared. Saved works are untouched.');
+};
 $('#btn-copy').onclick = copyJson;
+$('#json-copy').onclick = copyJson;
+$('#json-download').onclick = downloadJson;
 
 window.addEventListener('resize', () => { fitCanvas(); });
 
@@ -1354,7 +1826,6 @@ document.addEventListener('keydown', (e) => {
 
 /* --- boot ----------------------------------------------------------------- */
 
-loadCoordOverrides();
 showCoordHint();
 
 try {
