@@ -3,7 +3,7 @@
 One design language for the gramoflava family: **whois**, **grainofrain**, **glassbox**,
 **hexports**, **novaos** — and whatever comes next.
 
-Drop-in, no build step, no dependencies.
+Drop-in, no build step, no package or runtime dependencies.
 
 ## Identity
 
@@ -32,6 +32,7 @@ visual vocabulary.
 | `theme.js` | Light / auto / dark switch, persisted in `localStorage`. |
 | `icons/` | Tabler icon sources (24 grid, stroke 1.5, `currentColor`). |
 | `marks/` | Product brand marks; not UI affordances. |
+| `THIRD_PARTY_NOTICES.md` | Attribution and licences for bundled third-party assets. |
 
 ## Install
 
@@ -171,3 +172,9 @@ Nothing here is invented from scratch:
 - **App shell, accordion inspector, dialogs, toast** — glassbox
 - **Stats table (`.stats`), 16-metric readout** — grainofrain `js/stats.js`
 - **Stat cards, dense toolbar** — hexports
+
+## Licence
+
+The original design-system code and marks use the repository’s
+[Unlicense](LICENSE). Icons derived from Tabler Icons retain their MIT notice in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

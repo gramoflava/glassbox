@@ -1,8 +1,8 @@
 /* gramof design — theme switch (light / auto / dark)
    Lifted from whois, tokenized for the family.
 
-   1. Paste the inline no-flash snippet from theme-noflash.html into <head>,
-      BEFORE any stylesheet.
+   1. Paste the inline no-flash snippet from README.md into <head>, BEFORE any
+      stylesheet.
    2. Load this file (defer is fine) and drop the markup below anywhere:
 
       <div class="segmented segmented--icon" role="group" aria-label="Color theme" data-theme-switch>
