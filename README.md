@@ -44,6 +44,11 @@ Primary references:
 - Image Size synchronizes the aspect ratio; the ratio also accepts presets and
   custom values such as `32:17`.
 - Placement boxes are optional per element.
+- Prompt health gives non-blocking layout advice: missing essential fields,
+  empty descriptions or text, dense layouts, tiny text boxes, scene surfaces
+  boxed as objects, and round or square objects distorted by the frame ratio.
+- Elements are ordered back to front. Use the arrows in the element list to
+  move an overlapping element behind or in front of another.
 - The Plain JSON view is read-only and compact, matching model prompt
   serialization; copy and download keep bounding-box arrays inline.
 - Paste JSON validates strictly against DrawThings Ideogram 4.0 before replacing

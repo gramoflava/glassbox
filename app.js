@@ -493,17 +493,30 @@ function renderInspector() {
   settings.onclick = openSettingsDialog;
   frag.appendChild(settings);
 
+  /* This is deliberately advice, rather than a second validator. The strict
+     validator protects imported DrawThings JSON; these checks help a person
+     spot composition choices that make a diffusion result less predictable. */
+  const health = document.createElement('section');
+  health.className = 'prompt-health solid';
+  health.id = 'prompt-health';
+  health.setAttribute('aria-label', 'Prompt health');
+  frag.appendChild(health);
+
   const head = document.createElement('div');
   head.className = 'composition-head';
   const heading = document.createElement('strong');
   heading.textContent = t.id === 'flux2' ? 'Subjects' : 'Elements';
   const count = badge(String(doc.boxes.length));
+  const layerOrder = document.createElement('span');
+  layerOrder.className = 'hint composition-head__layers';
+  layerOrder.textContent = 'back → front';
+  layerOrder.title = 'Earlier elements sit behind later elements when boxes overlap.';
   const add = document.createElement('button');
   add.type = 'button';
   add.className = 'btn';
   add.textContent = 'Add';
   add.onclick = addBox;
-  head.append(heading, count, add);
+  head.append(heading, count, layerOrder, add);
   frag.appendChild(head);
 
   const list = document.createElement('div');
@@ -514,8 +527,136 @@ function renderInspector() {
   frag.appendChild(list);
 
   el.inspector.replaceChildren(frag);
+  renderPromptHealth();
   quantizeInspectorCards();
   renderJson();
+}
+
+function boxName(box) {
+  const index = doc.boxes.indexOf(box) + 1;
+  return box.label || box.text || box.prompt || `Element ${index}`;
+}
+
+function humanCount(count, singular) {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
+function promptHealth() {
+  const warnings = [];
+  const notes = [];
+  const positioned = doc.boxes.filter((box) => box.hasBbox !== false);
+
+  if (!doc.scene.trim()) {
+    warnings.push('Scene is empty — add one sentence describing the whole image.');
+  }
+  if (!doc.background.trim()) {
+    warnings.push('Background is empty — describe the environment or use “transparent background”.');
+  }
+
+  const withoutDescriptions = doc.boxes.filter((box) => !box.prompt.trim());
+  if (withoutDescriptions.length) {
+    warnings.push(`${humanCount(withoutDescriptions.length, 'element')} need${withoutDescriptions.length === 1 ? 's' : ''} a description.`);
+  }
+
+  const emptyText = doc.boxes.filter((box) => box.kind === 'text' && !box.text.trim());
+  if (emptyText.length) {
+    warnings.push(`${humanCount(emptyText.length, 'text element')} need${emptyText.length === 1 ? 's' : ''} literal text.`);
+  }
+
+  if (positioned.length > 5) {
+    notes.push(`${positioned.length} placement boxes: dense layouts are valid, but fewer precisely placed elements are usually easier to reproduce.`);
+  }
+
+  const frame = canvasAspectRatio();
+  const intendedSquare = /\b(?:square|circle|circular|round logo|round icon|disc|orb|badge)\b/i;
+  const surfaceOnly = /^\s*(?:a |an |the )?(?:wide |flat |wooden |stone |concrete |grassy |grass |sandy |wet |empty |plain )*(?:ground|floor|pavement|road|sand|grass|water|sky|wall|ceiling)\b/i;
+
+  for (const box of positioned) {
+    const name = boxName(box);
+    const desc = box.prompt || '';
+
+    if (box.kind === 'obj' && surfaceOnly.test(desc)) {
+      notes.push(`“${name}” looks like a scene surface. If it is not a focal object, describe it in Background instead of boxing it.`);
+    }
+
+    if (box.kind === 'text' && box.text.trim() && box.rect.h < 0.035) {
+      const height = hasPixelBasis() ? ` (${Math.round(box.rect.h * doc.pixelBasis.h)} px at this size)` : '';
+      notes.push(`Text box “${boxName(box)}” is only ${(box.rect.h * 100).toFixed(1)}% high${height}; small text may not stay legible.`);
+    }
+
+    if (intendedSquare.test(desc) && box.rect.w > 0 && box.rect.h > 0) {
+      const displayedRatio = (box.rect.w * frame) / box.rect.h;
+      if (displayedRatio < 0.75 || displayedRatio > 1.33) {
+        const normalizedWidth = Math.round((100 / frame) * 10) / 10;
+        notes.push(`“${name}” is described as round or square, but its on-image box is about ${displayedRatio.toFixed(2)}:1. For a square shape on ${doc.aspect}, use a width around ${normalizedWidth}% of its height.`);
+      }
+    }
+  }
+
+  /* Overlap is often intentional (for example text on a product), so make it
+     a reminder about the stack rather than a warning. */
+  for (let i = 0; i < positioned.length; i += 1) {
+    for (let j = i + 1; j < positioned.length; j += 1) {
+      const a = positioned[i], b = positioned[j];
+      const aArea = a.rect.w * a.rect.h;
+      const bArea = b.rect.w * b.rect.h;
+      const overlap = Math.max(0, Math.min(a.rect.x + a.rect.w, b.rect.x + b.rect.w) - Math.max(a.rect.x, b.rect.x))
+        * Math.max(0, Math.min(a.rect.y + a.rect.h, b.rect.y + b.rect.h) - Math.max(a.rect.y, b.rect.y));
+      if (overlap && overlap / Math.min(aArea, bArea) >= 0.8) {
+        notes.push(`“${boxName(a)}” and “${boxName(b)}” nearly share a box. Their list order decides which one is in front.`);
+      }
+    }
+  }
+
+  return { warnings, notes };
+}
+
+function renderPromptHealth() {
+  const card = $('#prompt-health');
+  if (!card) return;
+  const { warnings, notes } = promptHealth();
+  card.replaceChildren();
+
+  const head = document.createElement('div');
+  head.className = 'prompt-health__head';
+  const title = document.createElement('strong');
+  title.textContent = 'Prompt health';
+  const status = document.createElement('span');
+  status.className = 'prompt-health__status' + (warnings.length ? ' is-warning' : '');
+  status.textContent = warnings.length
+    ? `${humanCount(warnings.length, 'check')}`
+    : notes.length ? `${humanCount(notes.length, 'note')}`
+      : 'Ready';
+  head.append(title, status);
+  card.appendChild(head);
+
+  const intro = document.createElement('p');
+  intro.className = 'prompt-health__intro';
+  intro.textContent = 'Advice only — it never changes or blocks your JSON.';
+  card.appendChild(intro);
+
+  if (!warnings.length && !notes.length) {
+    const ready = document.createElement('p');
+    ready.className = 'hint';
+    ready.textContent = 'The structure is complete and the placed boxes have no obvious layout risks.';
+    card.appendChild(ready);
+    return;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'prompt-health__list';
+  for (const message of warnings) {
+    const item = document.createElement('li');
+    item.className = 'is-warning';
+    item.textContent = message;
+    list.appendChild(item);
+  }
+  for (const message of notes) {
+    const item = document.createElement('li');
+    item.textContent = message;
+    list.appendChild(item);
+  }
+  card.appendChild(list);
 }
 
 /**
@@ -559,6 +700,30 @@ function renderBoxListItem(box) {
   openButton.append(copy);
   openButton.onclick = () => openBoxDialog(box.id);
 
+  const actions = document.createElement('div');
+  actions.className = 'box-list-item__actions';
+
+  const move = (direction, label, symbol) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn--quiet btn--icon box-list-item__layer';
+    button.textContent = symbol;
+    button.disabled = direction < 0 ? index === 1 : index === doc.boxes.length;
+    button.title = label;
+    button.setAttribute('aria-label', `${label} ${title.textContent}`);
+    button.onclick = (event) => {
+      event.stopPropagation();
+      moveBox(box.id, direction);
+    };
+    return button;
+  };
+
+  /* The canvas appends elements in list order, so the last one sits on top. */
+  actions.append(
+    move(-1, 'Move backward', '↑'),
+    move(1, 'Move forward', '↓'),
+  );
+
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'btn btn--quiet btn--danger btn--icon';
@@ -568,8 +733,9 @@ function renderBoxListItem(box) {
     event.stopPropagation();
     deleteBox(box.id);
   };
+  actions.appendChild(del);
 
-  row.append(swatch, openButton, del);
+  row.append(swatch, openButton, actions);
   return row;
 }
 
@@ -1142,6 +1308,15 @@ function deleteBox(id) {
     editorSession = null;
     $('#dlg-box').close('delete');
   }
+  renderCanvas(); renderInspector(); persistDraft();
+}
+
+function moveBox(id, direction) {
+  const index = doc.boxes.findIndex((box) => box.id === id);
+  const next = index + direction;
+  if (index < 0 || next < 0 || next >= doc.boxes.length) return;
+  const [box] = doc.boxes.splice(index, 1);
+  doc.boxes.splice(next, 0, box);
   renderCanvas(); renderInspector(); persistDraft();
 }
 
