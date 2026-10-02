@@ -24,8 +24,8 @@ actions still use the Tabler set in `icons/`.
 raindrop people already recognise from its old favicon.
 
 `novaos` uses its own emblem, a four-point star inside a tilted orbit, in white
-on an indigo squircle with a soft violet gradient — the expressive tier's one
-allowance. The full-colour emblem lives inside the app (boot screen, island).
+on a flat indigo squircle like every other mark (the gradient version showed a
+light rim in Safari tabs). The full-colour emblem lives inside the app (boot screen, island).
 
 `hexports` uses Tabler's `chart-line` on its orange accent squircle: the mark
 describes local health time-series exploration without introducing a separate
@@ -37,7 +37,7 @@ visual vocabulary.
 |---|---|
 | `gramof.css` | All tokens + components. The whole system. |
 | `theme.js` | Light / auto / dark switch, persisted in `localStorage`. |
-| `kofi.js` | Support panel (Ko-fi): any `[data-kofi]` element opens it. |
+| `tools.js` | Site tools: theme switch · Ko-fi · whois, plus the Ko-fi panel. |
 | `icons/` | Tabler icon sources (24 grid, stroke 1.5, `currentColor`). |
 | `marks/` | Product brand marks; not UI affordances. |
 | `THIRD_PARTY_NOTICES.md` | Attribution and licences for bundled third-party assets. |
@@ -77,21 +77,30 @@ because the dark-mode accents are light enough that white fails WCAG AA. Labels 
 fixed palette or chart fills (which do not change with the theme) use
 `--text-on-color`, which stays white.
 
-## Support (Ko-fi)
+## Site tools: theme · Ko-fi · whois
 
-Every site carries a way to support lava. Put a quiet icon button with
-`icons/coffee.svg` in the site's chrome — the app bar, or next to the theme
-switch — and load `kofi.js`:
+Every site's top-right chrome is the same module, in this order: the theme
+switch, a coffee button that opens the Ko-fi panel, and a person icon that
+links to whois. `tools.js` renders it from an empty element; load it before
+`theme.js`:
 
 ```html
-<button class="btn btn--quiet btn--icon" type="button" data-kofi
-        aria-label="Support my work" title="Support my work">…coffee.svg…</button>
-<script defer src="gramofdesign/kofi.js"></script>
+<div class="site-tools" data-site-tools></div>            <!-- in an app bar -->
+<div class="site-tools site-tools--glass site-tools--float"
+     data-site-tools></div>                                <!-- page without one -->
+
+<script defer src="gramofdesign/tools.js"></script>
+<script defer src="gramofdesign/theme.js"></script>
 ```
 
-The panel opens under the top-right chrome (full screen on phones), loads Ko-fi
-only on first open, and closes on Escape or a click outside. Keep the bottom
-corners free for page actions.
+`data-site-tools="no-whois"` drops the link on whois itself. The Ko-fi panel
+opens under the chrome (full screen on phones), loads Ko-fi only on first open,
+and closes on Escape or a click outside. No floating coffee buttons in page
+corners: those belong to page actions.
+
+**Site CSS must not restyle these components.** A broad rule such as
+`#controls button { border-radius: 4px }` outranks any class in this file and
+breaks the concentric radii. Scope site rules to the site's own classes.
 
 ## The rules
 
@@ -103,8 +112,8 @@ corners free for page actions.
    Hit targets ≥ 30 px on desktop, ≥ 44 px on touch.
 4. **Tabler icons only**, 1.5 stroke, `currentColor`, from `icons/`. novaos keeps its
    custom geometric set for *app marks* only — never for UI affordances.
-5. **The theme switch is always the three-segment pill**: sun / A / moon, top right.
-   Add `.segmented--icon`; drop it for the word form on wide content pages.
+5. **The theme switch is always the three-segment pill**: sun / A / moon, top right,
+   as the first part of the site-tools module (see above).
    Auto means "no stored preference", not "system dark". Always keep `aria-label`
    and `title` on each segment — the icons carry no text.
 6. **Motion is 120–200 ms.** The only exception is the expressive tier.

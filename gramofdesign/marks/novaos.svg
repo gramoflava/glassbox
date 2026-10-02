@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
   <title>novaos</title>
-  <defs><linearGradient id="nova" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset=".6" stop-color="#4f46e5"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs>
-  <rect width="32" height="32" rx="8" fill="url(#nova)"/>
+  <rect width="32" height="32" rx="8" fill="#4f46e5"/>
   <path d="M5.2 19.6C4.4 17.6 8.6 14.4 14.6 12.4S25.3 10.6 25.2 13" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" opacity=".55"/>
   <path d="M16 6c.8 5.3 4.7 9.2 10 10c-5.3 .8 -9.2 4.7 -10 10c-.8 -5.3 -4.7 -9.2 -10 -10c5.3 -.8 9.2 -4.7 10 -10z" fill="#fff"/>
   <path d="M25.2 13C26 15 21.8 18.2 15.8 20.2S5.1 22 5.2 19.6" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>

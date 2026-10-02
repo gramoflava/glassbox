@@ -678,7 +678,7 @@ button, select, input, textarea { font: inherit; color: var(--text); }
   white-space: nowrap;
   transition: color var(--dur-fast), background var(--dur-fast);
 }
-.segmented__btn:hover { color: var(--text); }
+.segmented__btn:hover { color: var(--text); background: var(--surface-sunk); }
 .segmented__btn[aria-pressed='true'],
 .segmented__btn.is-active { background: var(--accent); color: var(--text-on-accent); }
 .segmented__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
@@ -1052,12 +1052,69 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
 .stat__value { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
 .stat__delta { font-size: var(--text-sm); color: var(--text-secondary); }
 
-/* ── Support panel (Ko-fi) ───────────────────────────────────────────────────
-   Any element with [data-kofi] opens it; kofi.js builds the panel on first use.
-   The trigger is an ordinary quiet icon button with icons/coffee.svg, placed in
-   the site's own chrome (app bar, or next to the theme switch).
+/* ── Site tools: theme switch · Ko-fi · whois ─────────────────────────────────
+   One module in every site's top-right chrome, rendered by tools.js from an
+   empty [data-site-tools] element. Buttons are circles inside a pill with 3px
+   padding, so every hover shape is concentric with its container.
    -------------------------------------------------------------------------- */
 
+.site-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+}
+.site-tools .segmented { padding: 0; background: none; border: 0; box-shadow: none; }
+.site-tools__sep { width: 1px; height: 18px; margin: 0 3px; background: var(--line-strong); }
+.site-tools__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--dur-fast), background var(--dur-fast);
+}
+.site-tools__btn:hover { color: var(--text); background: var(--surface-sunk); text-decoration: none; }
+.site-tools__btn[aria-expanded='true'] { color: var(--accent); }
+.site-tools__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.site-tools__btn svg {
+  width: 16px; height: 16px; display: block;
+  fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* For pages without an app bar: glass, and pinned to the corner. */
+.site-tools--glass {
+  background: var(--glass);
+  box-shadow: var(--shadow-md), var(--glass-edge);
+  backdrop-filter: blur(var(--blur-bar)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-bar)) saturate(1.4);
+}
+.site-tools--float { position: fixed; top: var(--space-5); right: var(--space-6); z-index: 100; }
+@media (max-width: 640px) {
+  .site-tools--float { top: var(--space-3); right: var(--space-4); }
+}
+@media (hover: none) and (pointer: coarse) {
+  .site-tools__btn { width: 44px; height: 44px; }
+}
+/* Phones: five 44px targets do not fit an app bar next to anything else. */
+@media (max-width: 480px) {
+  .site-tools__btn,
+  .site-tools .segmented--icon .segmented__btn { width: 36px; height: 36px; min-height: 36px; }
+}
+
+/* Ko-fi panel, opened from the coffee button (or any [data-kofi]). */
 .kofi-panel {
   position: fixed;
   top: 64px;
