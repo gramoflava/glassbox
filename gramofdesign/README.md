@@ -23,6 +23,10 @@ actions still use the Tabler set in `icons/`.
 `grainofrain` uses Tabler's `droplet` on its teal accent squircle, keeping the
 raindrop people already recognise from its old favicon.
 
+`novaos` uses Tabler's `planet` on an indigo squircle with a soft violet
+gradient — the expressive tier's one allowance. The black-hole logo stays inside
+the app (boot screen, island) as its own brand art.
+
 `hexports` uses Tabler's `chart-line` on its orange accent squircle: the mark
 describes local health time-series exploration without introducing a separate
 visual vocabulary.
