@@ -33,6 +33,7 @@ visual vocabulary.
 |---|---|
 | `gramof.css` | All tokens + components. The whole system. |
 | `theme.js` | Light / auto / dark switch, persisted in `localStorage`. |
+| `kofi.js` | Support panel (Ko-fi): any `[data-kofi]` element opens it. |
 | `icons/` | Tabler icon sources (24 grid, stroke 1.5, `currentColor`). |
 | `marks/` | Product brand marks; not UI affordances. |
 | `THIRD_PARTY_NOTICES.md` | Attribution and licences for bundled third-party assets. |
@@ -71,6 +72,22 @@ Text on an accent fill uses `--text-on-accent`: white in light, near-black in da
 because the dark-mode accents are light enough that white fails WCAG AA. Labels on
 fixed palette or chart fills (which do not change with the theme) use
 `--text-on-color`, which stays white.
+
+## Support (Ko-fi)
+
+Every site carries a way to support lava. Put a quiet icon button with
+`icons/coffee.svg` in the site's chrome — the app bar, or next to the theme
+switch — and load `kofi.js`:
+
+```html
+<button class="btn btn--quiet btn--icon" type="button" data-kofi
+        aria-label="Support my work" title="Support my work">…coffee.svg…</button>
+<script defer src="gramofdesign/kofi.js"></script>
+```
+
+The panel opens under the top-right chrome (full screen on phones), loads Ko-fi
+only on first open, and closes on Escape or a click outside. Keep the bottom
+corners free for page actions.
 
 ## The rules
 

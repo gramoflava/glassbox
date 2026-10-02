@@ -1052,6 +1052,53 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
 .stat__value { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
 .stat__delta { font-size: var(--text-sm); color: var(--text-secondary); }
 
+/* ── Support panel (Ko-fi) ───────────────────────────────────────────────────
+   Any element with [data-kofi] opens it; kofi.js builds the panel on first use.
+   The trigger is an ordinary quiet icon button with icons/coffee.svg, placed in
+   the site's own chrome (app bar, or next to the theme switch).
+   -------------------------------------------------------------------------- */
+
+.kofi-panel {
+  position: fixed;
+  top: 64px;
+  right: var(--space-6);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  height: 700px;
+  max-width: calc(100vw - 2 * var(--space-6));
+  max-height: calc(100dvh - 88px);
+  overflow: hidden;
+  background: var(--glass-active);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), var(--glass-edge);
+  backdrop-filter: blur(var(--blur-panel)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(1.4);
+  animation: kofi-in var(--dur-slow) var(--ease-out);
+}
+.kofi-panel[hidden] { display: none; }
+.kofi-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.kofi-panel iframe { flex: 1; width: 100%; border: 0; background: transparent; }
+@keyframes kofi-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+@media (max-width: 640px) {
+  .kofi-panel { inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none; border-radius: 0; border: 0; }
+}
+
 /* ── Expressive tier: novaos only ───────────────────────────────────────────
    Same tokens, dialled up. Set on <html data-tier="expressive">.
    Nothing else in the family opts in.
