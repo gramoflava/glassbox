@@ -23,9 +23,9 @@ actions still use the Tabler set in `icons/`.
 `grainofrain` uses Tabler's `droplet` on its teal accent squircle, keeping the
 raindrop people already recognise from its old favicon.
 
-`novaos` uses Tabler's `planet` on an indigo squircle with a soft violet
-gradient — the expressive tier's one allowance. The black-hole logo stays inside
-the app (boot screen, island) as its own brand art.
+`novaos` uses its own emblem, a four-point star inside a tilted orbit, in white
+on an indigo squircle with a soft violet gradient — the expressive tier's one
+allowance. The full-colour emblem lives inside the app (boot screen, island).
 
 `hexports` uses Tabler's `chart-line` on its orange accent squircle: the mark
 describes local health time-series exploration without introducing a separate
@@ -122,7 +122,9 @@ corners free for page actions.
 from `--accent`, glass chrome, blur 40, radius 16 (cards 11), 10 px gaps.
 
 **Expressive** — novaos only. Set `data-tier="expressive"` on `<html>`. Same tokens,
-raised: blur 56, radius 20, deeper glass, and the animated cosmos backdrop, which
+raised: blur 56, radius 20, deeper glass, slightly stronger `--text-muted` (hints sit
+on moving colour). Body text stays Inter; Outfit is for headings, window titles and
+the wordmark, as everywhere else, and the animated cosmos backdrop, which
 switches the static wash off:
 
 ```html

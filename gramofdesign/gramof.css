@@ -1105,7 +1105,6 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
    -------------------------------------------------------------------------- */
 
 :root[data-tier='expressive'] {
-  --font-sans: 'Outfit', 'Inter', -apple-system, sans-serif;
   --dur-slow: 380ms;
   --blur-panel: 56px;
   --blur-bar:   56px;
@@ -1115,17 +1114,33 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
   --glass-hover:  rgba(30, 30, 35, 0.50);
   --glass-active: rgba(40, 40, 45, 0.60);
   --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.7);
+  --text-muted: #8b93a1;   /* one step up: hints sit on moving colour */
 }
 :root[data-tier='expressive'].theme-light {
+  --text-muted:   #6b7280;
   --glass:        rgba(255, 255, 255, 0.55);
   --glass-hover:  rgba(255, 255, 255, 0.72);
   --glass-active: rgba(255, 255, 255, 0.90);
 }
 @media (prefers-color-scheme: light) {
   :root[data-tier='expressive']:not(.theme-light):not(.theme-dark) {
+    --text-muted:   #6b7280;
     --glass:        rgba(255, 255, 255, 0.55);
     --glass-hover:  rgba(255, 255, 255, 0.72);
     --glass-active: rgba(255, 255, 255, 0.90);
+  }
+}
+
+/* Auto + system dark: the plain dark block above is more specific than
+   :root[data-tier], so restate the expressive values here. Without this, Auto
+   and Dark rendered different glass and shadows. */
+@media (prefers-color-scheme: dark) {
+  :root[data-tier='expressive']:not(.theme-light):not(.theme-dark) {
+    --glass:        rgba(20, 20, 25, 0.40);
+    --glass-hover:  rgba(30, 30, 35, 0.50);
+    --glass-active: rgba(40, 40, 45, 0.60);
+    --shadow-lg:    0 20px 60px rgba(0, 0, 0, 0.7);
+    --text-muted:   #8b93a1;
   }
 }
 
