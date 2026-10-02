@@ -1,7 +1,7 @@
 # gramof design
 
 One design language for the gramoflava family: **whois**, **grainofrain**, **glassbox**,
-**hexports**, **novaos** — and whatever comes next.
+**hexports**, **novaos**, **lens** — and whatever comes next.
 
 Drop-in, no build step, no package or runtime dependencies.
 
@@ -60,9 +60,14 @@ visual vocabulary.
 <html lang="en" data-accent="grainofrain">
 ```
 
-`data-accent` picks the product hue: `whois` `grainofrain` `glassbox` `hexports` `novaos`.
-Omit it and you get the whois blue. Add a new product by adding one pair of lines to the
-accent block in `gramof.css`.
+`data-accent` picks the product hue: `whois` `grainofrain` `glassbox` `hexports` `novaos`
+`lens` (silver). Omit it and you get the whois blue. Add a new product by adding one line
+to each of the three accent blocks in `gramof.css` (light, auto-dark, forced dark).
+
+Text on an accent fill uses `--text-on-accent`: white in light, near-black in dark,
+because the dark-mode accents are light enough that white fails WCAG AA. Labels on
+fixed palette or chart fills (which do not change with the theme) use
+`--text-on-color`, which stays white.
 
 ## The rules
 
@@ -70,7 +75,7 @@ accent block in `gramof.css`.
    lightness and chroma, so no component needs a per-product exception.
 2. **Glass is for chrome, not content.** The top bar and the side inspector are glass.
    Cards *inside* them are `.solid`. Never stack glass on glass.
-3. **14 px base, 4 px grid, 10 px workspace gap.** One density across all five.
+3. **14 px base, 4 px grid, 10 px workspace gap.** One density across the family.
    Hit targets ≥ 30 px on desktop, ≥ 44 px on touch.
 4. **Tabler icons only**, 1.5 stroke, `currentColor`, from `icons/`. novaos keeps its
    custom geometric set for *app marks* only — never for UI affordances.
@@ -89,7 +94,7 @@ accent block in `gramof.css`.
 
 ## Two tiers
 
-**Standard** — whois, grainofrain, glassbox, hexports. Static two-lobe accent wash derived
+**Standard** — whois, grainofrain, glassbox, hexports, lens. Static two-lobe accent wash derived
 from `--accent`, glass chrome, blur 40, radius 16 (cards 11), 10 px gaps.
 
 **Expressive** — novaos only. Set `data-tier="expressive"` on `<html>`. Same tokens,

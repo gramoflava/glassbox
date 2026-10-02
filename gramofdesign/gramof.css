@@ -1,6 +1,6 @@
 /* ============================================================================
    gramof design — shared design language
-   One family, five products. Shared bones, per-project accent hue.
+   One family, six products. Shared bones, per-project accent hue.
 
    Bones derive from whois (cleanest light/dark story).
    Glass surfaces derive from novaos, calmed for everyday use.
@@ -152,6 +152,7 @@ html.theme-light {
   --text-secondary: #4b5563;
   --text-muted:     #9ca3af;
   --text-on-accent: #ffffff;
+  --text-on-color:  #ffffff;   /* labels on fixed palette / chart fills, both themes */
 
   --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
   --shadow-md:    0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -192,7 +193,7 @@ html.theme-light {
     --text:           #e8eaf0;
     --text-secondary: #9ca3af;
     --text-muted:     #6b7280;
-    --text-on-accent: #ffffff;
+    --text-on-accent: #0b0d12;   /* dark accents are light: white fails AA */
 
     --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.35);
     --shadow-md:    0 4px 20px rgba(0, 0, 0, 0.42);
@@ -231,7 +232,7 @@ html.theme-dark {
   --text:           #e8eaf0;
   --text-secondary: #9ca3af;
   --text-muted:     #6b7280;
-  --text-on-accent: #ffffff;
+  --text-on-accent: #0b0d12;
 
   --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-md:    0 4px 20px rgba(0, 0, 0, 0.42);
@@ -261,6 +262,7 @@ html.theme-dark {
 :root[data-accent='glassbox']    { --accent: #6d3ce0; --accent-hover: #5b2fc4; }
 :root[data-accent='hexports']    { --accent: #c2410c; --accent-hover: #9f3509; }
 :root[data-accent='novaos']      { --accent: #4f46e5; --accent-hover: #4338ca; }
+:root[data-accent='lens']        { --accent: #64748b; --accent-hover: #475569; }
 
 @media (prefers-color-scheme: dark) {
   :root:not(.theme-light):not(.theme-dark)                      { --accent: #3b82f6; --accent-hover: #60a5fa; }
@@ -269,6 +271,7 @@ html.theme-dark {
   :root:not(.theme-light):not(.theme-dark)[data-accent='glassbox']    { --accent: #a78bfa; --accent-hover: #c4b5fd; }
   :root:not(.theme-light):not(.theme-dark)[data-accent='hexports']    { --accent: #fb923c; --accent-hover: #fdba74; }
   :root:not(.theme-light):not(.theme-dark)[data-accent='novaos']      { --accent: #818cf8; --accent-hover: #a5b4fc; }
+  :root:not(.theme-light):not(.theme-dark)[data-accent='lens']        { --accent: #94a3b8; --accent-hover: #cbd5e1; }
 }
 
 html.theme-dark                      { --accent: #3b82f6; --accent-hover: #60a5fa; }
@@ -277,6 +280,7 @@ html.theme-dark[data-accent='grainofrain'] { --accent: #2dd4bf; --accent-hover: 
 html.theme-dark[data-accent='glassbox']    { --accent: #a78bfa; --accent-hover: #c4b5fd; }
 html.theme-dark[data-accent='hexports']    { --accent: #fb923c; --accent-hover: #fdba74; }
 html.theme-dark[data-accent='novaos']      { --accent: #818cf8; --accent-hover: #a5b4fc; }
+html.theme-dark[data-accent='lens']        { --accent: #94a3b8; --accent-hover: #cbd5e1; }
 
 /* Derived accent washes — always in terms of the live --accent. */
 :root {
