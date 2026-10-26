@@ -10,7 +10,9 @@
    Modifiers on the element:
      .site-tools--glass   glass surface, for pages without an app bar
      .site-tools--float   fixed to the top-right corner
+     data-site-tools="no-kofi"    leave out the Ko-fi button and panel
      data-site-tools="no-whois"   leave out the whois link (whois itself)
+     Options combine, space-separated: data-site-tools="no-kofi no-whois"
 
    The Ko-fi panel is built on first open, so a page that never opens it never
    loads Ko-fi. It closes on the close button, Escape, or a click outside.
@@ -32,7 +34,9 @@
 
   // ── Render the module ─────────────────────────────────────────────────────
   document.querySelectorAll('[data-site-tools]').forEach(function (el) {
-    var noWhois = el.getAttribute('data-site-tools') === 'no-whois';
+    var opts = (el.getAttribute('data-site-tools') || '').split(/\s+/);
+    var noWhois = opts.indexOf('no-whois') !== -1;
+    var noKofi = opts.indexOf('no-kofi') !== -1;
     el.classList.add('site-tools');
     el.innerHTML =
       '<div class="segmented segmented--icon" role="group" aria-label="Color theme" data-theme-switch>' +
@@ -40,8 +44,9 @@
         '<button class="segmented__btn" type="button" data-theme="auto" aria-label="Auto" title="Auto" aria-pressed="false"><span>A</span></button>' +
         '<button class="segmented__btn" type="button" data-theme="dark" aria-label="Dark" title="Dark" aria-pressed="false">' + ICON.moon + '</button>' +
       '</div>' +
-      '<span class="site-tools__sep" aria-hidden="true"></span>' +
-      '<button class="site-tools__btn" type="button" data-kofi aria-expanded="false" aria-label="Support my work" title="Support my work">' + ICON.coffee + '</button>' +
+      (noKofi && noWhois ? '' : '<span class="site-tools__sep" aria-hidden="true"></span>') +
+      (noKofi ? '' :
+        '<button class="site-tools__btn" type="button" data-kofi aria-expanded="false" aria-label="Support my work" title="Support my work">' + ICON.coffee + '</button>') +
       (noWhois ? '' :
         '<a class="site-tools__btn" href="' + WHOIS + '" aria-label="Who made this — lava" title="Who made this">' + ICON.user + '</a>');
   });

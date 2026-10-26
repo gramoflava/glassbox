@@ -278,7 +278,7 @@
   background: var(--box-color, var(--palette-grey));
   border-radius: var(--radius-xs);
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -289,7 +289,7 @@
 .box-label.unnamed {
   opacity: 0.75;
   font-style: italic;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .handle {
@@ -442,7 +442,7 @@
 .box-list-item__open:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .settings-card__copy,
@@ -455,7 +455,7 @@
   display: block;
   margin-bottom: 2px;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .settings-card__summary,
@@ -501,7 +501,7 @@
   padding: 9px 10px;
   border: 0;
   border-bottom: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: var(--radius-none);
   background: transparent;
   box-shadow: none;
 }
@@ -532,7 +532,7 @@
   padding: 0;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: var(--text-lg);
   line-height: 24px;
   text-align: center;
 }
@@ -597,13 +597,13 @@
 
 .box-title {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .box-title.unnamed {
   color: var(--text-muted);
   font-style: italic;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
 }
 
 .box-sub {
@@ -639,7 +639,7 @@
   gap: var(--space-2);
   width: fit-content;
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .placement-toggle input {
@@ -738,7 +738,7 @@ pre.json {
 }
 
 #paste-summary .hint.warn {
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 .slot-list {
@@ -762,7 +762,7 @@ pre.json {
 }
 
 .slot-name {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .slot-meta {
@@ -792,12 +792,12 @@ pre.json {
     flex-wrap: wrap;
   }
 
-  #dlg-save .btn-pair {
+  .dlg-save .btn-pair {
     order: 3;
     width: 100%;
   }
 
-  #dlg-save .btn-pair .btn {
+  .dlg-save .btn-pair .btn {
     flex: 1;
   }
 

@@ -1,15 +1,15 @@
 /* ============================================================================
-   gramof design — shared design language
-   One family, six products. Shared bones, per-project accent hue.
-
-   Bones derive from whois (cleanest light/dark story).
-   Glass surfaces derive from novaos, calmed for everyday use.
-   Chart tokens derive from grainofrain.
+   gramof design — the shared design language of the gramoflava family.
+   A playbook, not a theme for one site: tokens, components and rules that any
+   site can rely on. Each site picks only its accent hue.
 
    Usage:
      <link rel="stylesheet" href="gramofdesign/gramof.css">
-     <html data-accent="grainofrain">        <- picks the accent hue
+     <html data-accent="<product>">         <- picks the accent hue
      <html class="theme-dark">               <- explicit theme (see theme.js)
+
+   Rule of the house: raw values (px sizes, ms durations, hex colours, weights)
+   live only in token definitions. Everything else reads tokens.
    ========================================================================== */
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
@@ -32,11 +32,16 @@ html {
   --text-2xs: 10px;
   --text-xs:  11px;
   --text-sm:  12px;
-  --text-md:  14px;   /* base — one density across all five projects */
+  --text-md:  14px;   /* base — one density across the family */
   --text-lg:  16px;
   --text-xl:  20px;
   --text-2xl: 26px;
   --text-3xl: 34px;
+  --text-display: clamp(var(--text-3xl), 6vw, 56px);   /* one hero title per landing page */
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;   /* the heaviest weight in the family */
 
   --leading-tight: 1.2;
   --leading-body:  1.55;
@@ -327,14 +332,14 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
 
-h1, .h1 { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.03em; line-height: var(--leading-tight); }
-h2, .h2 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; line-height: var(--leading-tight); }
-h3, .h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: 600; letter-spacing: -0.01em; }
+h1, .h1 { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: var(--weight-semibold); letter-spacing: -0.03em; line-height: var(--leading-tight); }
+h2, .h2 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; line-height: var(--leading-tight); }
+h3, .h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: -0.01em; }
 
 .eyebrow {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
@@ -348,7 +353,7 @@ h3, .h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weig
   display: inline-block;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.04em;
   color: var(--accent);
   background: var(--accent-soft);
@@ -411,7 +416,7 @@ h3, .h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weig
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   font-size: var(--text-md);
   letter-spacing: -0.02em;
   margin-right: var(--space-1);
@@ -558,7 +563,7 @@ h3, .h3 { font-family: var(--font-display); font-size: var(--text-lg); font-weig
   background: transparent;
   color: var(--text-muted);
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   cursor: pointer;
   transition: color var(--dur-fast) ease;
 }
@@ -625,7 +630,7 @@ button, select, input, textarea { font: inherit; color: var(--text); }
   background: var(--surface);
   color: var(--text);
   font-size: var(--text-md);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--dur-fast) ease, border-color var(--dur-fast) ease,
@@ -666,7 +671,7 @@ button, select, input, textarea { font: inherit; color: var(--text); }
   min-height: 30px;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.03em;
   line-height: 1.4;
   color: var(--text-muted);
@@ -708,7 +713,7 @@ button, select, input, textarea { font: inherit; color: var(--text); }
   display: block;
 }
 /* "A" for auto — a glyph, not a picture of one */
-.segmented--icon .segmented__btn span { font-size: var(--text-sm); font-weight: 500; line-height: 1; }
+.segmented--icon .segmented__btn span { font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: 1; }
 
 /* ── Toggle switch ───────────────────────────────────────────────────────── */
 
@@ -784,7 +789,7 @@ button, select, input, textarea { font: inherit; color: var(--text); }
 .field { display: flex; flex-direction: column; gap: var(--space-1); }
 .field > label {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--text-secondary);
   display: flex; align-items: baseline; gap: var(--space-1);
 }
@@ -859,7 +864,7 @@ input[type='range']::-moz-range-thumb {
   cursor: pointer;
   padding: 9px 8px;
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   font-size: var(--text-md);
   list-style: none;
   display: flex;
@@ -887,7 +892,7 @@ input[type='range']::-moz-range-thumb {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--text-muted);
   background: var(--surface-sunk);
   border-radius: var(--radius-pill);
@@ -925,7 +930,7 @@ dialog {
   width: calc(100vw - 40px);
 }
 dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); }
-.dlg__head { padding: 16px 18px 0; font-weight: 600; font-size: var(--text-lg); letter-spacing: -0.02em; }
+.dlg__head { padding: 16px 18px 0; font-weight: var(--weight-semibold); font-size: var(--text-lg); letter-spacing: -0.02em; }
 .dlg__body { padding: 12px 18px; display: flex; flex-direction: column; gap: var(--space-3); }
 .dlg__foot { padding: 12px 18px 16px; display: flex; gap: var(--space-2); justify-content: flex-end; align-items: center; }
 
@@ -970,7 +975,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
 }
 .stats__head span:not(:first-child) {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-align: right;
 }
 .stats__row {
@@ -1027,7 +1032,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   cursor: pointer;
   transition: background var(--dur-fast) ease, color var(--dur-fast) ease;
 }
@@ -1049,7 +1054,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
   display: flex; flex-direction: column; gap: 2px;
 }
 .stat__label { font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-.stat__value { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.stat__value { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; color: var(--text); }
 .stat__delta { font-size: var(--text-sm); color: var(--text-secondary); }
 
 /* ── Site tools: theme switch · Ko-fi · whois ─────────────────────────────────
@@ -1145,7 +1150,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); 
   border-bottom: 1px solid var(--line);
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .kofi-panel iframe { flex: 1; width: 100%; border: 0; background: transparent; }
 @keyframes kofi-in {

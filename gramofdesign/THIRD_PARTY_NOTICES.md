@@ -26,3 +26,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Fonts (self-hosted option)
+
+`fonts/` holds Inter, Outfit and JetBrains Mono as WOFF2 subsets for sites that
+self-host instead of using Google Fonts. Each is licensed under the SIL Open
+Font License 1.1; the full licence texts ship beside the files
+(`fonts/LICENSE-inter.txt`, `fonts/LICENSE-outfit.txt`,
+`fonts/LICENSE-jetbrains-mono.txt`).

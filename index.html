@@ -5,23 +5,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>glassbox — structured prompt builder</title>
-  <meta name="description"
-    content="A browser-only visual builder for DrawThings Ideogram 4.0 structured prompts.">
+  <title>glassbox</title>
+  <meta name="description" content="A browser-only visual builder for DrawThings Ideogram 4.0 structured prompts.">
+  <meta property="og:title" content="glassbox">
+  <meta property="og:description" content="A browser-only visual builder for DrawThings Ideogram 4.0 structured prompts.">
+  <meta property="og:url" content="https://glassbox.gramoflava.xyz">
   <script>
     (function () {
       var t = null;
-      try {
-        t = localStorage.getItem('theme');
-        if (!t) {
-          var legacy = localStorage.getItem('glassbox.theme');
-          if (legacy && legacy !== 'auto') {
-            t = legacy;
-            localStorage.setItem('theme', legacy);
-          }
-          if (legacy) localStorage.removeItem('glassbox.theme');
-        }
-      } catch (e) { }
+      try { t = localStorage.getItem('theme'); } catch (e) {}
       if (t === 'light') document.documentElement.classList.add('theme-light');
       else if (t === 'dark') document.documentElement.classList.add('theme-dark');
     })();
@@ -32,7 +24,9 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Outfit:wght@400;500;600&amp;display=swap">
   <link rel="stylesheet" href="gramofdesign/gramof.css">
   <link rel="stylesheet" href="styles.css">
-  <link rel="icon" href="gramofdesign/marks/glassbox.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script defer src="gramofdesign/tools.js"></script>
   <script defer src="gramofdesign/theme.js"></script>
 </head>
@@ -228,7 +222,7 @@
     </form>
   </dialog>
 
-  <dialog id="dlg-save">
+  <dialog id="dlg-save" class="dlg-save">
     <form method="dialog">
       <div class="dlg__head">Save as new work</div>
       <div class="dlg__body">
